@@ -151,7 +151,7 @@ function formatRateLimit(info: unknown): string {
     typeof i.status === 'string' ? i.status : undefined,
     typeof i.rateLimitType === 'string' ? i.rateLimitType : undefined,
     typeof i.utilization === 'number' ? `${Math.round(i.utilization * 100)}%` : undefined,
-    typeof i.resetsAt === 'number' ? `reset ${new Date(i.resetsAt).toISOString()}` : undefined,
+    typeof i.resetsAt === 'number' ? `reset ${new Date(i.resetsAt * 1000).toISOString()}` : undefined,
   ].filter(Boolean).join(' ');
 }
 
