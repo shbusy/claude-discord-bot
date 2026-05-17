@@ -77,6 +77,7 @@ export class StreamingMessage {
 
   async finalize(): Promise<void> {
     this.finalized = true;
+    this.thinking = '';
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;

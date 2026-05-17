@@ -68,6 +68,8 @@ export class ClaudeRunner extends EventEmitter {
   private started = false;
   private finished = false;
   private emittedPartialDeltas = false;
+  private partialTextAccum = '';
+  private partialThinkingAccum = '';
 
   constructor(private readonly opts: RunnerStartOptions) {
     super();
@@ -272,17 +274,29 @@ export class ClaudeRunner extends EventEmitter {
           };
         };
         const content = a.message.content ?? [];
+        const fullText = content
+          .filter((b) => b.type === 'text' && typeof b.text === 'string')
+          .map((b) => b.text as string)
+          .join('');
+        const fullThinking = content
+          .filter((b) => b.type === 'thinking' && typeof b.thinking === 'string')
+          .map((b) => b.thinking as string)
+          .join('');
+
+        if (this.emittedPartialDeltas) {
+          if (fullText.length > this.partialTextAccum.length) {
+            this.emit('text', fullText.slice(this.partialTextAccum.length));
+          }
+          if (fullThinking.length > this.partialThinkingAccum.length) {
+            this.emit('thinking', fullThinking.slice(this.partialThinkingAccum.length));
+          }
+        } else {
+          if (fullText.length > 0) this.emit('text', fullText);
+          if (fullThinking.length > 0) this.emit('thinking', fullThinking);
+        }
+
         for (const block of content) {
-          const type = block.type;
-          if (!this.emittedPartialDeltas && type === 'text' && typeof block.text === 'string') {
-            this.emit('text', block.text);
-          } else if (
-            !this.emittedPartialDeltas &&
-            type === 'thinking' &&
-            typeof block.thinking === 'string'
-          ) {
-            this.emit('thinking', block.thinking);
-          } else if (type === 'tool_use') {
+          if (block.type === 'tool_use') {
             this.emit('toolUse', {
               id: String(block.id),
               name: String(block.name),
@@ -290,6 +304,11 @@ export class ClaudeRunner extends EventEmitter {
             });
           }
         }
+
+        this.partialTextAccum = '';
+        this.partialThinkingAccum = '';
+        this.emittedPartialDeltas = false;
+
         if (a.message.usage) {
           this.emit('usage', mapUsage(a.message.usage));
         }
@@ -318,10 +337,12 @@ export class ClaudeRunner extends EventEmitter {
         if (!delta) return;
         if (typeof delta.text === 'string' && delta.text.length > 0) {
           this.emittedPartialDeltas = true;
+          this.partialTextAccum += delta.text;
           this.emit('text', delta.text);
         }
         if (typeof delta.thinking === 'string' && delta.thinking.length > 0) {
           this.emittedPartialDeltas = true;
+          this.partialThinkingAccum += delta.thinking;
           this.emit('thinking', delta.thinking);
         }
         return;

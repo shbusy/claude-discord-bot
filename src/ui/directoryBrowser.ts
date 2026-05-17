@@ -1,4 +1,5 @@
 import { mkdir, readdir } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { basename, dirname, join, resolve } from 'node:path';
 import {
   ActionRowBuilder,
@@ -54,8 +55,15 @@ export async function handleDirectoryBrowserInteraction(
       return true;
     }
     const dirnameInput = interaction.fields.getTextInputValue('dirname').trim();
-    const result = await createChildDirectory(current.path, dirnameInput, current.root);
-    await interaction.reply({ content: `폴더를 생성했습니다: \`${result}\``, ephemeral: true });
+    try {
+      const result = await createChildDirectory(current.path, dirnameInput, current.root);
+      const payload = await buildBrowserPayload(result, current.root, current.permissionMode);
+      await interaction.reply({ content: `폴더를 생성했습니다: \`${result}\``, ...payload, ephemeral: true });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      const detail = (err as NodeJS.ErrnoException)?.code === 'EEXIST' ? '이미 존재하는 폴더입니다.' : reason;
+      await interaction.reply({ content: `폴더 생성에 실패했습니다: ${detail}`, ephemeral: true });
+    }
     return true;
   }
 
@@ -237,7 +245,7 @@ async function startSessionChannel(
 }
 
 function rememberPath(path: string, permissionMode: string, root: string): string {
-  const token = Buffer.from(`${Date.now()}:${Math.random()}`).toString('base64url').slice(0, 16);
+  const token = randomBytes(9).toString('base64url');
   pathTokens.set(token, { path, permissionMode, root });
   return token;
 }
