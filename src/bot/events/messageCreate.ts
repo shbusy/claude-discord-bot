@@ -12,6 +12,7 @@ import {
 } from '../../util/attachments.js';
 import type { UsageDelta } from '../../claude/types.js';
 import { USAGE_CHANNEL_NAMES } from '../channelNames.js';
+import { recordRateLimit, getStoredLimits, type StoredLimit } from '../../usage/rateLimitStore.js';
 
 export function registerMessageCreate(ctx: AppContext): void {
   ctx.client.on(Events.MessageCreate, (msg) => {
@@ -95,6 +96,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
     },
     onRateLimit: (info) => {
       lastRateLimit = info;
+      recordRateLimit(info);
       stream.appendText(`\n\nRate limit: \`${formatRateLimit(info)}\``);
     },
     onError: (err) => {
@@ -183,14 +185,15 @@ function addUsage(target: UsageDelta, delta: UsageDelta): void {
 }
 
 export async function postUsageUpdate(channel: TextChannel, usage: UsageDelta, rateLimit: unknown): Promise<void> {
-  if (usage.inputTokens === 0 && usage.outputTokens === 0 && !rateLimit) return;
+  const limits = getStoredLimits();
+  if (usage.inputTokens === 0 && usage.outputTokens === 0 && !rateLimit && limits.length === 0) return;
   const usageChannel = channel.guild.channels.cache.find(
     (ch) => ch.type === ChannelType.GuildText && USAGE_CHANNEL_NAMES.includes(ch.name),
   ) as TextChannel | undefined;
   if (!usageChannel) return;
   const embed = new EmbedBuilder()
     .setTitle('📊 세션 사용량')
-    .setColor(0x5865f2)
+    .setColor(pickEmbedColor(limits))
     .addFields(
       { name: '채널', value: `<#${channel.id}>`, inline: true },
       { name: 'Input', value: usage.inputTokens.toLocaleString(), inline: true },
@@ -200,8 +203,57 @@ export async function postUsageUpdate(channel: TextChannel, usage: UsageDelta, r
   if (typeof usage.costUsd === 'number') {
     embed.addFields({ name: 'Cost', value: `$${usage.costUsd.toFixed(4)}`, inline: true });
   }
-  if (rateLimit) {
+  if (limits.length > 0) {
+    embed.addFields({ name: '한도', value: formatLimitsBlock(limits) });
+  } else if (rateLimit) {
     embed.addFields({ name: 'Rate limit', value: formatRateLimit(rateLimit) || 'unknown' });
   }
   await usageChannel.send({ embeds: [embed] });
+}
+
+const LIMIT_LABELS: Record<StoredLimit['rateLimitType'], string> = {
+  five_hour: '⏱ 5h     ',
+  seven_day: '📅 7d     ',
+  seven_day_opus: '📅 7d Opus',
+  seven_day_sonnet: '📅 7d Sonn',
+  overage: '💸 Overage',
+};
+
+function formatLimitsBlock(limits: StoredLimit[]): string {
+  const lines = limits.map((l) => {
+    const label = LIMIT_LABELS[l.rateLimitType] ?? l.rateLimitType;
+    const bar = progressBar(l.utilization);
+    const pct = `${Math.round(l.utilization * 100).toString().padStart(3, ' ')}%`;
+    const reset = l.resetsAt ? ` · reset ${formatResetTime(l.resetsAt)}` : '';
+    const warn = l.status === 'allowed_warning' ? ' ⚠️' : l.status === 'rejected' ? ' 🛑' : '';
+    return `${label} ${bar} ${pct}${reset}${warn}`;
+  });
+  return '```\n' + lines.join('\n') + '\n```';
+}
+
+function progressBar(util: number, width = 12): string {
+  const clamped = Math.max(0, Math.min(1, util));
+  const filled = Math.round(clamped * width);
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
+}
+
+function formatResetTime(secondsEpoch: number): string {
+  const d = new Date(secondsEpoch * 1000);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) {
+    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function pickEmbedColor(limits: StoredLimit[]): number {
+  let max = 0;
+  for (const l of limits) {
+    if (l.status === 'rejected') return 0xed4245;
+    if (l.utilization > max) max = l.utilization;
+  }
+  if (max >= 0.9) return 0xed4245;
+  if (max >= 0.7) return 0xfee75c;
+  return 0x5865f2;
 }
