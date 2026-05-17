@@ -46,7 +46,7 @@ describe('ClaudeRunner', () => {
     const text: string[] = [];
     runner.on('text', (delta) => text.push(delta));
 
-    Reflect.apply(Reflect.get(runner, 'handleEvent'), runner, [{
+    Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [{
       type: 'stream_event',
       session_id: 's',
       event: {
@@ -55,7 +55,7 @@ describe('ClaudeRunner', () => {
         delta: { type: 'text_delta', text: 'hel' },
       },
     }]);
-    Reflect.apply(Reflect.get(runner, 'handleEvent'), runner, [{
+    Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [{
       type: 'assistant',
       session_id: 's',
       message: {
@@ -74,7 +74,7 @@ describe('ClaudeRunner', () => {
     const thinking: string[] = [];
     runner.on('thinking', (delta) => thinking.push(delta));
 
-    Reflect.apply(Reflect.get(runner, 'handleEvent'), runner, [{
+    Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [{
       type: 'stream_event',
       session_id: 's',
       event: {
@@ -93,7 +93,7 @@ describe('ClaudeRunner', () => {
     const results: Array<{ toolUseId: string; content: string; isError?: boolean }> = [];
     runner.on('toolResult', (result) => results.push(result));
 
-    Reflect.apply(Reflect.get(runner, 'handleEvent'), runner, [{
+    Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [{
       type: 'user',
       session_id: 's',
       message: {
@@ -115,7 +115,7 @@ describe('ClaudeRunner', () => {
     const usage: unknown[] = [];
     runner.on('usage', (delta) => usage.push(delta));
 
-    Reflect.apply(Reflect.get(runner, 'handleEvent'), runner, [{
+    Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [{
       type: 'result',
       subtype: 'success',
       is_error: false,
