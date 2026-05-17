@@ -1,7 +1,7 @@
 import { EmbedBuilder, Events, type Message, type SendableChannels, type TextChannel, ChannelType } from 'discord.js';
 import type { AppContext } from '../types.js';
 import { StreamingMessage } from '../../ui/streamingMessage.js';
-import { showPermissionPrompt } from '../../ui/permissionPrompt.js';
+import { showPermissionPrompt, type PermissionState } from '../../ui/permissionPrompt.js';
 import { ThreadRouter } from '../../ui/threadRouter.js';
 import { UsageTracker } from '../../usage/tracker.js';
 import {
@@ -64,6 +64,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
   const turnUsage = createEmptyUsage();
   const outputFiles = new Map<string, string>();
   let lastRateLimit: unknown = null;
+  const permState: PermissionState = { lastMsg: null };
 
   await ctx.sessions.send(msg.channelId, prompt, {
     onText: (delta) => stream.appendText(delta),
@@ -126,7 +127,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
         }
       });
     },
-    onPermission: (req) => showPermissionPrompt(msg.channel as SendableChannels, req, ctx.config.allowedUserIds),
+    onPermission: (req) => showPermissionPrompt(msg.channel as SendableChannels, req, ctx.config.allowedUserIds, { state: permState }),
   });
 }
 

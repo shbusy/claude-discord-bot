@@ -11,12 +11,20 @@ import {
 import type { PermissionRequestEvent, PermissionDecision } from '../claude/types.js';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-const SAFE_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'TodoRead']);
+const SAFE_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'TodoRead', 'TodoWrite']);
+
+const SAFE_BASH_RE = /^\s*(git\s+(log|status|diff|show|ls-files|branch|tag|remote|describe|config\s+--list)\b|grep\b|rg\b|cat\b|head\b|tail\b|ls\b|find\b|which\b|file\b|stat\b|ps\b|wc\b|sort\b|uniq\b|echo\b|printf\b|jq\b)/;
+const UNSAFE_BASH_RE = /\brm\s|\bmv\s|\bkill\b|\bpkill\b|\bchmod\b|\bchown\b|\bsudo\b|\bsu\s|git\s+(push|commit|reset|checkout|merge|rebase)\b|npm\s+(install|publish)\b|pip\s+(install|uninstall)\b|>{1}/;
 const INPUT_PREVIEW_MAX_LINES = 3;
 const INPUT_PREVIEW_MAX_LINE_CHARS = 120;
 
+export interface PermissionState {
+  lastMsg: Message | null;
+}
+
 export interface PermissionPromptOptions {
   timeoutMs?: number;
+  state?: PermissionState;
 }
 
 export interface PermissionPromptResult {
@@ -38,6 +46,13 @@ export async function showPermissionPrompt(
   if (autoDecision) return autoDecision;
 
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const state = opts?.state;
+
+  // 이전 권한 요청 메시지 삭제 (단일 메시지 유지)
+  if (state?.lastMsg) {
+    await state.lastMsg.delete().catch(() => {});
+    state.lastMsg = null;
+  }
 
   const embed = new EmbedBuilder()
     .setTitle('🔐 도구 사용 권한 요청')
@@ -52,6 +67,7 @@ export async function showPermissionPrompt(
   const row = buildPermissionButtonRow(req.id);
 
   const msg: Message = await channel.send({ embeds: [embed], components: [row] });
+  if (state) state.lastMsg = msg;
 
   try {
     const collected = await msg.awaitMessageComponent({
@@ -64,6 +80,7 @@ export async function showPermissionPrompt(
     });
 
     const decision = parseDecision(collected.customId, req.id);
+    if (state) state.lastMsg = null;
     await collected.update({
       embeds: [embed.setColor(decision.decision === 'deny' ? 0xed4245 : 0x57f287)],
       components: [],
@@ -72,6 +89,7 @@ export async function showPermissionPrompt(
   } catch {
     // Timeout — auto deny
     const decision: PermissionDecision = { type: 'permission_decision', id: req.id, decision: 'deny' };
+    if (state) state.lastMsg = null;
     await msg.edit({
       embeds: [embed.setColor(0xed4245).setFooter({ text: '⏰ 타임아웃 — 자동 거부' })],
       components: [],
@@ -81,8 +99,18 @@ export async function showPermissionPrompt(
 }
 
 export function autoAllowSafeTool(req: PermissionRequestEvent): PermissionDecision | null {
-  if (!SAFE_TOOLS.has(req.tool.name)) return null;
-  return { type: 'permission_decision', id: req.id, decision: 'allow_once' };
+  if (SAFE_TOOLS.has(req.tool.name)) {
+    return { type: 'permission_decision', id: req.id, decision: 'allow_once' };
+  }
+  if (req.tool.name === 'Bash') {
+    const cmd = typeof req.tool.input === 'object' && req.tool.input !== null
+      ? String((req.tool.input as Record<string, unknown>).command ?? '')
+      : '';
+    if (cmd && SAFE_BASH_RE.test(cmd) && !UNSAFE_BASH_RE.test(cmd)) {
+      return { type: 'permission_decision', id: req.id, decision: 'allow_once' };
+    }
+  }
+  return null;
 }
 
 export function buildPermissionButtonRow(reqId: string): ActionRowBuilder<ButtonBuilder> {
