@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { StreamParser } from './streamParser.js';
 import type {
@@ -17,6 +17,7 @@ export interface RunnerEvents {
   init: (e: SystemInitEvent) => void;
   text: (delta: string) => void;
   toolUse: (block: { id: string; name: string; input: unknown }) => void;
+  toolResult: (block: { toolUseId: string; content: string; isError?: boolean }) => void;
   thinking: (delta: string) => void;
   permission: (req: PermissionRequestEvent) => void;
   usage: (u: UsageDelta) => void;
@@ -33,6 +34,13 @@ export interface ClaudeRunner {
   once<K extends keyof RunnerEvents>(event: K, cb: RunnerEvents[K]): this;
 }
 
+export function buildClaudeSpawnOptions(opts: Pick<RunnerStartOptions, 'cwd'>): SpawnOptionsWithoutStdio {
+  return {
+    cwd: opts.cwd,
+    env: process.env,
+  };
+}
+
 export class ClaudeRunner extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
   private parser: StreamParser;
@@ -41,6 +49,7 @@ export class ClaudeRunner extends EventEmitter {
   private cwdSnapshot: string | null = null;
   private finished = false;
   private stderrTail: string[] = [];
+  private emittedPartialDeltas = false;
 
   constructor(private readonly opts: RunnerStartOptions) {
     super();
@@ -66,17 +75,14 @@ export class ClaudeRunner extends EventEmitter {
   async start(): Promise<void> {
     if (this.child) throw new Error('runner already started');
     const args = this.buildArgs();
-    this.child = spawn(this.opts.bin, args, {
-      cwd: this.opts.cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
-    });
-    this.child.stdout.setEncoding('utf8');
-    this.child.stderr.setEncoding('utf8');
-    this.child.stdout.on('data', (chunk: string) => this.parser.feed(chunk));
-    this.child.stderr.on('data', (chunk: string) => this.captureStderr(chunk));
-    this.child.on('error', (err) => this.emit('error', err));
-    this.child.on('close', (code, signal) => {
+    const child = spawn(this.opts.bin, args, buildClaudeSpawnOptions(this.opts));
+    this.child = child;
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => this.parser.feed(chunk));
+    child.stderr.on('data', (chunk: string) => this.captureStderr(chunk));
+    child.on('error', (err) => this.emit('error', err));
+    child.on('close', (code, signal) => {
       this.parser.flush();
       this.finished = true;
       this.emit('exit', code, signal);
@@ -125,11 +131,7 @@ export class ClaudeRunner extends EventEmitter {
   }
 
   private buildArgs(): string[] {
-    const args = ['-p', '--output-format', 'stream-json', '--input-format', 'stream-json', '--verbose'];
-    if (this.opts.model) args.push('--model', this.opts.model);
-    if (this.opts.resumeSessionId) args.push('--resume', this.opts.resumeSessionId);
-    if (this.opts.extraArgs) args.push(...this.opts.extraArgs);
-    return args;
+    return buildClaudeArgs(this.opts);
   }
 
   private captureStderr(chunk: string): void {
@@ -157,9 +159,9 @@ export class ClaudeRunner extends EventEmitter {
       case 'assistant': {
         const a = e as AssistantEvent;
         for (const block of a.message.content ?? []) {
-          if (block.type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
+          if (!this.emittedPartialDeltas && block.type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
             this.emit('text', (block as { text: string }).text);
-          } else if (block.type === 'thinking' && typeof (block as { thinking?: unknown }).thinking === 'string') {
+          } else if (!this.emittedPartialDeltas && block.type === 'thinking' && typeof (block as { thinking?: unknown }).thinking === 'string') {
             this.emit('thinking', (block as { thinking: string }).thinking);
           } else if (block.type === 'tool_use') {
             const tu = block as { id: string; name: string; input: unknown };
@@ -169,6 +171,14 @@ export class ClaudeRunner extends EventEmitter {
         if (a.message.usage) {
           this.emit('usage', mapUsage(a.message.usage));
         }
+        return;
+      }
+      case 'user': {
+        this.handleUserEvent(e);
+        return;
+      }
+      case 'stream_event': {
+        this.handleStreamEvent(e);
         return;
       }
       case 'rate_limit_event': {
@@ -181,7 +191,7 @@ export class ClaudeRunner extends EventEmitter {
       }
       case 'result': {
         const r = e as ResultEvent;
-        if (r.usage) this.emit('usage', mapUsage(r.usage, r.total_cost_usd));
+        if (r.usage) this.emit('usage', mapUsage(r.usage, r.total_cost_usd, true));
         this.emit('end', r);
         return;
       }
@@ -189,6 +199,51 @@ export class ClaudeRunner extends EventEmitter {
         return;
     }
   }
+
+  private handleStreamEvent(e: StreamEvent): void {
+    const ev = (e as { event?: unknown }).event;
+    if (!ev || typeof ev !== 'object') return;
+    const delta = (ev as { delta?: unknown }).delta;
+    if (!delta || typeof delta !== 'object') return;
+    const text = (delta as { text?: unknown }).text;
+    const thinking = (delta as { thinking?: unknown }).thinking;
+    if (typeof text === 'string' && text.length > 0) {
+      this.emittedPartialDeltas = true;
+      this.emit('text', text);
+    }
+    if (typeof thinking === 'string' && thinking.length > 0) {
+      this.emittedPartialDeltas = true;
+      this.emit('thinking', thinking);
+    }
+  }
+
+  private handleUserEvent(e: StreamEvent): void {
+    const content = (e as { message?: { content?: unknown } }).message?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content) {
+      if (!block || typeof block !== 'object') continue;
+      if ((block as { type?: unknown }).type !== 'tool_result') continue;
+      const toolUseId = (block as { tool_use_id?: unknown }).tool_use_id;
+      if (typeof toolUseId !== 'string') continue;
+      const raw = (block as { content?: unknown }).content;
+      const isError = Boolean((block as { is_error?: unknown }).is_error);
+      const text = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+      this.emit('toolResult', { toolUseId, content: text, isError });
+    }
+  }
+}
+
+export function buildClaudeArgs(opts: Pick<
+  RunnerStartOptions,
+  'model' | 'permissionMode' | 'resumeSessionId' | 'extraArgs' | 'includePartialMessages'
+>): string[] {
+  const args = ['-p', '--output-format', 'stream-json', '--input-format', 'stream-json', '--verbose'];
+  if (opts.includePartialMessages !== false) args.push('--include-partial-messages');
+  if (opts.model) args.push('--model', opts.model);
+  if (opts.permissionMode) args.push('--permission-mode', opts.permissionMode);
+  if (opts.resumeSessionId) args.push('--resume', opts.resumeSessionId);
+  if (opts.extraArgs) args.push(...opts.extraArgs);
+  return args;
 }
 
 function mapUsage(u: {
@@ -196,12 +251,13 @@ function mapUsage(u: {
   output_tokens?: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
-}, costUsd?: number): UsageDelta {
+}, costUsd?: number, final = false): UsageDelta {
   return {
     inputTokens: u.input_tokens ?? 0,
     outputTokens: u.output_tokens ?? 0,
     cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
     cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
     costUsd,
+    final,
   };
 }

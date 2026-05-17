@@ -14,6 +14,7 @@ export interface StreamingMessageOptions {
   color?: number;
   /** ms — debounce window for edits. Default 350ms (~3 edits/s). */
   debounceMs?: number;
+  onFirstMessage?: (msg: Message) => void;
 }
 
 /**
@@ -23,6 +24,7 @@ export interface StreamingMessageOptions {
  */
 export class StreamingMessage {
   private slots: ChunkSlot[] = [{ msg: null, text: '' }];
+  private thinking = '';
   private toolName: string | null = null;
   private usage: UsageDelta | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -52,6 +54,12 @@ export class StreamingMessage {
       last.text += take;
       remaining = remaining.slice(space);
     }
+    this.scheduleFlush();
+  }
+
+  appendThinking(s: string): void {
+    if (s.length === 0) return;
+    this.thinking = (this.thinking + s).slice(-1200);
     this.scheduleFlush();
   }
 
@@ -94,6 +102,7 @@ export class StreamingMessage {
           await slot.msg.edit({ embeds: [embed] });
         } else if (slot.text.length > 0 || isLast) {
           slot.msg = await this.channel.send({ embeds: [embed] });
+          if (i === 0) this.opts.onFirstMessage?.(slot.msg);
         }
       }
     } finally {
@@ -102,15 +111,23 @@ export class StreamingMessage {
   }
 
   private buildEmbed(text: string, isLast: boolean): EmbedBuilder {
+    const description = this.buildDescription(text, isLast);
     const e = new EmbedBuilder()
       .setColor(this.opts.color ?? 0x5865f2)
-      .setDescription(text.length === 0 ? '⏳ 응답 대기 중…' : text);
+      .setDescription(description);
     if (this.opts.title) e.setTitle(this.opts.title);
     if (isLast) {
       const footer = buildFooter(this.toolName, this.usage, this.finalized);
       if (footer) e.setFooter({ text: footer });
     }
     return e;
+  }
+
+  private buildDescription(text: string, isLast: boolean): string {
+    const base = text.length === 0 ? '⏳ 응답 대기 중…' : text;
+    if (!isLast || this.thinking.length === 0) return base;
+    const thinkingBlock = `\n\n> thinking\n\`\`\`\n${this.thinking.slice(-1000)}\n\`\`\``;
+    return (base + thinkingBlock).slice(0, EMBED_DESC_LIMIT);
   }
 }
 

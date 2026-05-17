@@ -121,6 +121,7 @@
 ```
 📁 Claude Code (category)
  ├─ #📋-control          # 봇 제어, /cdb 명령 결과 출력
+ ├─ #📁-session          # 디렉토리 브라우저 / 세션 시작 진입점
  ├─ #📊-usage            # 사용량 리포트 자동 게시
  ├─ #🔔-alerts           # 권한 승인 요청 알림 (DM 미가능 시 fallback)
  └─ 📁 Sessions          # /cdb new 가 만드는 채널들이 들어가는 서브 카테고리
@@ -347,6 +348,9 @@ CLAUDE_BIN=claude              # PATH 또는 절대경로
 - Discord 메시지를 그대로 shell에 넣지 않음. 모든 prompt는 stdin write로만 전달 (인자 주입 차단).
 - `.env`·`config.json`·DB는 모두 `~/.claude-discord-bot/`에 0600 퍼미션으로 저장.
 - 도구 권한 승인 결정은 절대 자동화하지 않음 (timeout = 거부).
+- Discord에서 지정하는 세션 cwd와 디렉토리 브라우저 탐색은 `DEFAULT_CWD` 아래로 제한.
+- Discord 첨부 파일은 HTTPS Discord CDN URL, 개수 제한, 크기 제한을 통과해야 저장.
+- `/cdb plugin enable`은 안전한 플러그인 이름만 허용하고 플러그인 디렉토리 밖의 파일 로드를 거부.
 - 로그에 토큰·민감 stdout 마스킹.
 
 ---

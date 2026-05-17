@@ -12,9 +12,15 @@
   },
   "scripts": {
     "dev": "tsx bin/cdb.ts",
-    "start": "node dist/bin/cdb.js",
+    "setup": "tsx bin/cdb.ts setup",
+    "doctor": "tsx bin/cdb.ts doctor",
+    "e2e:manual": "tsx bin/cdb.ts e2e-manual",
+    "register": "tsx bin/cdb.ts register",
+    "run:bot": "tsx bin/cdb.ts run",
+    "start": "node dist/bin/cdb.js run",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify": "npm run typecheck && npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

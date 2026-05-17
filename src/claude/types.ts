@@ -11,6 +11,7 @@ export interface UsageDelta {
   cacheCreationInputTokens?: number;
   cacheReadInputTokens?: number;
   costUsd?: number;
+  final?: boolean;
 }
 
 export interface SystemInitEvent {
@@ -153,4 +154,6 @@ export interface RunnerStartOptions {
   initialPrompt?: string;
   bin: string;
   extraArgs?: string[];
+  permissionMode?: string;
+  includePartialMessages?: boolean;
 }

@@ -80,3 +80,10 @@
 ## 진행 로그
 
 - 2026-05-10: M0 완료 (Skeleton). M1~M9 자율 진행 시작.
+- 2026-05-16: M3 완료 (세션 매니저). SessionManager, topicCodec, sessionStore, resume/model/stop 커맨드 구현.
+- 2026-05-16: M4 완료 (권한 UI). permissionPrompt 버튼 3종(승인/한번만/거부) + 타임아웃 자동 거부.
+- 2026-05-16: M5 완료 (도구 스레드 분리). ThreadRouter로 도구별 스레드 분기.
+- 2026-05-16: M6 완료 (사용량 트래커). SQLite DB, UsageTracker, /cdb usage 커맨드.
+- 2026-05-16: M7 완료 (채널 구조). /cdb init + /cdb new 구현.
+- 2026-05-16: M8 완료 (플러그인 시스템). PluginRegistry, PluginLoader, chokidar 핫 리로드, /cdb plugin 커맨드.
+- 2026-05-16: M9 완료 (다듬기). /cdb config, BotError, rateLimit 유틸리티. 모든 stub 커맨드 실구현 교체.
