@@ -11,11 +11,11 @@ import {
 } from '../src/bot/channelNames.js';
 
 describe('/a4d init channel naming', () => {
-  it('matches the Agent4Discord primary category and channel names', () => {
-    expect(PRIMARY_GENERAL_CATEGORY_NAME).toBe('A4D - General');
-    expect(PRIMARY_SESSIONS_CATEGORY_NAME).toBe('A4D - Sessions');
-    expect(PRIMARY_BROWSER_CHANNEL_NAME).toBe('a4d-session');
-    expect(PRIMARY_USAGE_CHANNEL_NAME).toBe('a4d-usage');
+  it('matches the primary category and channel names', () => {
+    expect(PRIMARY_GENERAL_CATEGORY_NAME).toBe('General');
+    expect(PRIMARY_SESSIONS_CATEGORY_NAME).toBe('Sessions');
+    expect(PRIMARY_BROWSER_CHANNEL_NAME).toBe('session');
+    expect(PRIMARY_USAGE_CHANNEL_NAME).toBe('usage');
   });
 
   it('accepts both A4D and legacy category names while searching existing channels', () => {

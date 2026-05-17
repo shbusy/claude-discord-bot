@@ -50,6 +50,6 @@ describe('cdb CLI', () => {
 
     expect(stdout).toContain(`OK .env: ${envPath}`);
     expect(stdout).toContain('Manual Discord e2e checklist:');
-    expect(stdout).toContain('#a4d-session');
+    expect(stdout).toContain('#session');
   });
 });

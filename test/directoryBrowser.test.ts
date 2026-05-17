@@ -13,10 +13,10 @@ describe('directory browser', () => {
     expect(() => sanitizeDirectoryName('..')).toThrow();
   });
 
-  it('builds Agent4Discord-prefixed session channel names', () => {
-    expect(buildSessionChannelName('My Project')).toBe('a4d-my-project');
-    expect(buildSessionChannelName('///')).toBe('a4d-session');
-    expect(buildSessionChannelName('가나다')).toBe('a4d-가나다');
+  it('builds session channel names from directory name', () => {
+    expect(buildSessionChannelName('My Project')).toBe('my-project');
+    expect(buildSessionChannelName('///')).toBe('session');
+    expect(buildSessionChannelName('가나다')).toBe('가나다');
   });
 
   it('resolves relative paths under the configured workspace root', () => {

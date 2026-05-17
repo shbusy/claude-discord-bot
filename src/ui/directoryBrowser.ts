@@ -255,5 +255,5 @@ export function sanitizeDirectoryName(name: string): string {
 
 export function buildSessionChannelName(name: string): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9가-힣_-]+/gi, '-').replace(/^-+|-+$/g, '');
-  return `a4d-${(slug || 'session').slice(0, 75)}`;
+  return (slug || 'session').slice(0, 75);
 }
