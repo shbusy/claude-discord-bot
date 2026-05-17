@@ -61,7 +61,8 @@ export async function dispatch(interaction: ChatInputCommandInteraction, ctx: Ap
     await handler.handle(interaction, ctx);
   } catch (err) {
     ctx.log.error({ err, sub }, '커맨드 처리 실패');
-    const msg = `❌ 처리 중 오류: \`${(err as Error).message}\``;
+    const msg = `❌ 처리 중 오류가 발생했습니다.`;
+    ctx.log.debug({ errMsg: (err as Error).message }, '커맨드 에러 상세');
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content: msg, ephemeral: true });
     } else {

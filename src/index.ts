@@ -25,7 +25,8 @@ export async function run(envPath?: string): Promise<void> {
 
   const pluginRegistry = new PluginRegistry();
   const pluginDir = join(cfg.cdbHome, 'plugins');
-  const pluginCtx = { client, config: cfg, log, sessions };
+  const { discordToken: _token, ...pluginSafeConfig } = cfg;
+  const pluginCtx = { client, config: pluginSafeConfig, log, sessions };
   const pluginLoader = new PluginLoader(pluginRegistry, pluginDir, pluginCtx, log);
 
   const ctx: AppContext = {

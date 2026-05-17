@@ -34,10 +34,12 @@ export interface ClaudeRunner {
   once<K extends keyof RunnerEvents>(event: K, cb: RunnerEvents[K]): this;
 }
 
+/** Build spawn options with sanitized env — DISCORD_TOKEN and other secrets are stripped. */
 export function buildClaudeSpawnOptions(opts: Pick<RunnerStartOptions, 'cwd'>): SpawnOptionsWithoutStdio {
+  const { DISCORD_TOKEN, DISCORD_CLIENT_ID, ALLOWED_USER_IDS, ...safeEnv } = process.env;
   return {
     cwd: opts.cwd,
-    env: process.env,
+    env: safeEnv,
   };
 }
 
@@ -87,7 +89,7 @@ export class ClaudeRunner extends EventEmitter {
       this.finished = true;
       this.emit('exit', code, signal);
       if (code !== 0 && code !== null) {
-        const tail = this.stderrTail.join('').slice(-2000);
+        const tail = sanitizeStderr(this.stderrTail.join('').slice(-2000));
         this.emit('error', new Error(`claude exited with code ${code}\n${tail}`));
       }
     });
@@ -244,6 +246,11 @@ export function buildClaudeArgs(opts: Pick<
   if (opts.resumeSessionId) args.push('--resume', opts.resumeSessionId);
   if (opts.extraArgs) args.push(...opts.extraArgs);
   return args;
+}
+
+/** Strip potential secrets (env assignments) from stderr before logging. */
+function sanitizeStderr(raw: string): string {
+  return raw.replace(/\b[A-Z_]{2,}=\S+/g, (m) => m.split('=')[0] + '=***');
 }
 
 function mapUsage(u: {

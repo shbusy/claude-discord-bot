@@ -3,9 +3,12 @@ import type { Logger } from 'pino';
 import type { Config } from '../config/schema.js';
 import type { SessionManager } from '../session/manager.js';
 
+/** Config subset exposed to plugins — secrets are excluded. */
+export type PluginSafeConfig = Omit<Config, 'discordToken'>;
+
 export interface PluginContext {
   client: Client;
-  config: Config;
+  config: PluginSafeConfig;
   log: Logger;
   sessions: SessionManager;
 }

@@ -24,11 +24,21 @@ describe('ClaudeRunner', () => {
     ]);
   });
 
-  it('inherits the current process environment for Claude Code plugin and auth interop', () => {
+  it('passes sanitized env without DISCORD_TOKEN to child process', () => {
+    process.env.DISCORD_TOKEN = 'secret-token';
+    process.env.DISCORD_CLIENT_ID = 'client-id';
+    process.env.ALLOWED_USER_IDS = '123';
     const opts = buildClaudeSpawnOptions({ cwd: '/work' });
 
     expect(opts.cwd).toBe('/work');
-    expect(opts.env).toBe(process.env);
+    expect(opts.env).not.toHaveProperty('DISCORD_TOKEN');
+    expect(opts.env).not.toHaveProperty('DISCORD_CLIENT_ID');
+    expect(opts.env).not.toHaveProperty('ALLOWED_USER_IDS');
+    expect(opts.env).toHaveProperty('PATH');
+
+    delete process.env.DISCORD_TOKEN;
+    delete process.env.DISCORD_CLIENT_ID;
+    delete process.env.ALLOWED_USER_IDS;
   });
 
   it('emits partial text deltas and avoids replaying full assistant text afterward', () => {
