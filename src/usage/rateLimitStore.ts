@@ -24,6 +24,29 @@ const KNOWN_TYPES: ReadonlySet<RateLimitType> = new Set([
 
 const store = new Map<RateLimitType, StoredLimit>();
 
+/** 마지막으로 알림을 보낸 10% 버킷 (0~9: 0~90%) */
+const lastNotifiedBucket = new Map<RateLimitType, number>();
+
+/**
+ * 해당 타입의 utilization이 10% 구간을 새로 넘었으면 true 반환 후 버킷 업데이트.
+ * 처음 기록되거나 구간이 올라갔을 때만 true.
+ */
+export function shouldNotifyBucket(type: RateLimitType): boolean {
+  const current = store.get(type);
+  if (!current) return false;
+  const currentBucket = Math.floor(current.utilization * 10);
+  const lastBucket = lastNotifiedBucket.get(type) ?? -1;
+  if (currentBucket > lastBucket) {
+    lastNotifiedBucket.set(type, currentBucket);
+    return true;
+  }
+  return false;
+}
+
+export function clearNotifiedBuckets(): void {
+  lastNotifiedBucket.clear();
+}
+
 export function recordRateLimit(info: unknown): void {
   if (!info || typeof info !== 'object') return;
   const i = info as {

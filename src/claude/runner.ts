@@ -113,6 +113,15 @@ export class ClaudeRunner extends EventEmitter {
         permissionMode: mapPermissionMode(this.opts.permissionMode),
         includePartialMessages: this.opts.includePartialMessages !== false,
         ...(this.opts.resumeSessionId ? { resume: this.opts.resumeSessionId } : {}),
+        ...(this.opts.appendSystemPrompt
+          ? {
+              systemPrompt: {
+                type: 'preset' as const,
+                preset: 'claude_code' as const,
+                append: this.opts.appendSystemPrompt,
+              },
+            }
+          : {}),
         abortController: this.abortController,
         canUseTool,
         env: buildSafeEnv(),

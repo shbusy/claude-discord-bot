@@ -12,6 +12,8 @@ import type { PermissionRequestEvent, PermissionDecision } from '../claude/types
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const SAFE_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'TodoRead']);
+const INPUT_PREVIEW_MAX_LINES = 3;
+const INPUT_PREVIEW_MAX_LINE_CHARS = 120;
 
 export interface PermissionPromptOptions {
   timeoutMs?: number;
@@ -44,11 +46,7 @@ export async function showPermissionPrompt(
       { name: 'Tool', value: req.tool.name, inline: true },
       { name: 'Risk', value: req.risk ?? 'unknown', inline: true },
     )
-    .setDescription(
-      '```json\n' +
-        JSON.stringify(req.tool.input, null, 2).slice(0, 1000) +
-        '\n```',
-    )
+    .setDescription('```json\n' + formatInputPreview(req.tool.input) + '\n```')
     .setFooter({ text: `${Math.round(timeoutMs / 1000)}초 내 응답 없으면 자동 거부` });
 
   const row = buildPermissionButtonRow(req.id);
@@ -104,6 +102,20 @@ export function buildPermissionButtonRow(reqId: string): ActionRowBuilder<Button
     .setStyle(ButtonStyle.Danger);
 
   return new ActionRowBuilder<ButtonBuilder>().addComponents(onceBtn, approveBtn, denyBtn);
+}
+
+export function formatInputPreview(input: unknown): string {
+  const pretty = JSON.stringify(input, null, 2) ?? '';
+  const lines = pretty.split('\n');
+  const shown = lines.slice(0, INPUT_PREVIEW_MAX_LINES).map(truncateLine);
+  const hiddenLines = lines.length - INPUT_PREVIEW_MAX_LINES;
+  if (hiddenLines > 0) shown.push(`… (+${hiddenLines} more)`);
+  return shown.join('\n');
+}
+
+function truncateLine(line: string): string {
+  if (line.length <= INPUT_PREVIEW_MAX_LINE_CHARS) return line;
+  return line.slice(0, INPUT_PREVIEW_MAX_LINE_CHARS - 1) + '…';
 }
 
 function parseDecision(customId: string, reqId: string): PermissionDecision {

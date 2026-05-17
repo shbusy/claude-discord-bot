@@ -3,6 +3,8 @@ import type { UsageDelta } from '../claude/types.js';
 
 const EMBED_DESC_LIMIT = 4096;
 const FLUSH_DEBOUNCE_MS = 350;
+const THINKING_TAIL_LINES = 3;
+const THINKING_LINE_MAX_CHARS = 120;
 
 interface ChunkSlot {
   msg: Message | null;
@@ -126,9 +128,20 @@ export class StreamingMessage {
   private buildDescription(text: string, isLast: boolean): string {
     const base = text.length === 0 ? '⏳ 응답 대기 중…' : text;
     if (!isLast || this.thinking.length === 0) return base;
-    const thinkingBlock = `\n\n> thinking\n\`\`\`\n${this.thinking.slice(-1000)}\n\`\`\``;
+    const tail = tailThinkingLines(this.thinking);
+    if (tail.length === 0) return base;
+    const thinkingBlock = `\n\n> thinking\n\`\`\`\n${tail}\n\`\`\``;
     return (base + thinkingBlock).slice(0, EMBED_DESC_LIMIT);
   }
+}
+
+export function tailThinkingLines(text: string): string {
+  const lines = text.split('\n');
+  while (lines.length > 0 && lines[lines.length - 1]!.trim() === '') lines.pop();
+  const tail = lines.slice(-THINKING_TAIL_LINES).map((l) =>
+    l.length > THINKING_LINE_MAX_CHARS ? '…' + l.slice(-(THINKING_LINE_MAX_CHARS - 1)) : l,
+  );
+  return tail.join('\n');
 }
 
 function buildFooter(tool: string | null, u: UsageDelta | null, done: boolean): string | null {

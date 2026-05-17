@@ -12,7 +12,8 @@ import {
 } from '../../util/attachments.js';
 import type { UsageDelta } from '../../claude/types.js';
 import { USAGE_CHANNEL_NAMES } from '../channelNames.js';
-import { recordRateLimit, getStoredLimits, type StoredLimit } from '../../usage/rateLimitStore.js';
+import { recordRateLimit, getStoredLimits, shouldNotifyBucket, type StoredLimit } from '../../usage/rateLimitStore.js';
+import { getAnthropicUsage } from '../../usage/anthropicUsageApi.js';
 
 export function registerMessageCreate(ctx: AppContext): void {
   ctx.client.on(Events.MessageCreate, (msg) => {
@@ -97,7 +98,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
     onRateLimit: (info) => {
       lastRateLimit = info;
       recordRateLimit(info);
-      stream.appendText(`\n\nRate limit: \`${formatRateLimit(info)}\``);
+      ctx.log.info({ rateLimitInfo: info }, '[rate_limit_event] raw data');
     },
     onError: (err) => {
       ctx.log.error({ err }, 'runner 에러');
@@ -123,7 +124,6 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
             ctx.log.warn({ err }, '사용량 채널 업데이트 실패'),
           );
         }
-        void msg.reply({ content: `<@${msg.author.id}> 응답이 완료되었습니다.` }).catch(() => {});
       });
     },
     onPermission: (req) => showPermissionPrompt(msg.channel as SendableChannels, req, ctx.config.allowedUserIds),
@@ -186,11 +186,37 @@ function addUsage(target: UsageDelta, delta: UsageDelta): void {
 
 export async function postUsageUpdate(channel: TextChannel, usage: UsageDelta, rateLimit: unknown): Promise<void> {
   const limits = getStoredLimits();
-  if (usage.inputTokens === 0 && usage.outputTokens === 0 && !rateLimit && limits.length === 0) return;
+
+  // Anthropic OAuth Usage API에서 실제 5시간 사용량 가져오기
+  const anthropicUsage = await getAnthropicUsage();
+
+  const fiveHourPct = anthropicUsage?.fiveHour ?? null;
+  const fiveHourResetAt = anthropicUsage?.fiveHourResetAt ?? null;
+
+  // API에서 가져온 실제 utilization으로 bucket 판단 (0-100% → 0.0-1.0)
+  if (fiveHourPct !== null) {
+    recordRateLimit({
+      rateLimitType: 'five_hour',
+      status: 'allowed',
+      utilization: fiveHourPct / 100,
+      resetsAt: fiveHourResetAt ? fiveHourResetAt.getTime() / 1000 : undefined,
+    });
+  }
+
+  // 알림 조건: 5시간 사용량이 10% 구간을 새로 넘었거나, 긴급 상태(경고/차단)일 때만
+  const hasUrgentLimit = limits.some(
+    (l) => l.status === 'rejected' || l.status === 'allowed_warning',
+  );
+  const crossedBucket = shouldNotifyBucket('five_hour');
+
+  // 아무 조건도 해당 없으면 조용히 스킵
+  if (!crossedBucket && !hasUrgentLimit) return;
+
   const usageChannel = channel.guild.channels.cache.find(
     (ch) => ch.type === ChannelType.GuildText && USAGE_CHANNEL_NAMES.includes(ch.name),
   ) as TextChannel | undefined;
   if (!usageChannel) return;
+
   const embed = new EmbedBuilder()
     .setTitle('📊 세션 사용량')
     .setColor(pickEmbedColor(limits))
@@ -200,14 +226,27 @@ export async function postUsageUpdate(channel: TextChannel, usage: UsageDelta, r
       { name: 'Output', value: usage.outputTokens.toLocaleString(), inline: true },
     )
     .setTimestamp(new Date());
+
   if (typeof usage.costUsd === 'number') {
     embed.addFields({ name: 'Cost', value: `$${usage.costUsd.toFixed(4)}`, inline: true });
   }
-  if (limits.length > 0) {
-    embed.addFields({ name: '한도', value: formatLimitsBlock(limits) });
-  } else if (rateLimit) {
+
+  // 5시간 사용량 (API에서 직접 가져온 실제 값)
+  if (fiveHourPct !== null) {
+    const bar = progressBar(fiveHourPct / 100);
+    const resetStr = fiveHourResetAt ? ` · reset ${formatResetTime(fiveHourResetAt.getTime() / 1000)}` : '';
+    embed.addFields({
+      name: '5시간 사용량',
+      value: `\`${bar} ${fiveHourPct}%${resetStr}\``,
+    });
+  }
+
+  if (hasUrgentLimit && limits.length > 0) {
+    embed.addFields({ name: '⚠️ 한도', value: formatLimitsBlock(limits) });
+  } else if (rateLimit && !fiveHourPct) {
     embed.addFields({ name: 'Rate limit', value: formatRateLimit(rateLimit) || 'unknown' });
   }
+
   await usageChannel.send({ embeds: [embed] });
 }
 

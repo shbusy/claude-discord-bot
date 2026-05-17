@@ -156,4 +156,6 @@ export interface RunnerStartOptions {
   extraArgs?: string[];
   permissionMode?: string;
   includePartialMessages?: boolean;
+  /** Appended to Claude Code's default system prompt (e.g. force thinking/response language). */
+  appendSystemPrompt?: string;
 }

@@ -32,6 +32,20 @@ export interface SessionManagerDeps {
   log: Logger;
 }
 
+/**
+ * Build a system-prompt suffix that forces extended thinking (and final
+ * responses) into the configured language, so the "thinking" block shown in
+ * Discord is consistently localized across new sessions.
+ */
+function buildLanguageInstruction(lang: string): string | undefined {
+  const normalized = lang.trim().toLowerCase();
+  if (!normalized || normalized === 'en') return undefined;
+  if (normalized === 'ko' || normalized.startsWith('ko-')) {
+    return '항상 한국어로 사고(thinking)하고 한국어로 답변하라. 코드, 식별자, 명령어 등 원문 그대로 두어야 의미가 보존되는 부분은 예외다.';
+  }
+  return `Always think and respond in ${lang}. Keep code, identifiers, and commands in their original form when translation would distort meaning.`;
+}
+
 export class SessionManager {
   private readonly sessions = new Map<string, ChannelSession>();
 
@@ -234,6 +248,7 @@ export class SessionManager {
       includePartialMessages: true,
       resumeSessionId: meta.sessionId || undefined,
       initialPrompt,
+      appendSystemPrompt: buildLanguageInstruction(this.deps.config.defaultLang),
     };
     return new ClaudeRunner(opts);
   }
