@@ -38,7 +38,7 @@
 | **도구 스레드 분리** | `Bash`, `Edit` 등 도구 호출을 별도 스레드로 분리해 메인 채널 깔끔 유지 |
 | **권한 승인 버튼** | 안전한 읽기 도구는 자동 허용, 위험 도구는 Discord 버튼으로 승인/거부. 60초 무응답 시 자동 거부 |
 | **파일 첨부 전달** | Discord 첨부 파일을 로컬에 저장하고 Claude에게 파일 경로를 전달. Claude가 `Write`로 만든 파일은 도구 스레드에 첨부 |
-| **사용량 추적** | SQLite에 토큰/비용 저장. `#a4d-usage` 자동 게시와 일/주/월 단위 리포트 |
+| **사용량 추적** | SQLite에 토큰/비용 저장. `#usage` 채널 게시와 일/주/월 단위 리포트 |
 | **세션 재개** | `--resume`으로 이전 대화 이어가기. 봇 재시작 후에도 채널 토픽에서 복원 |
 | **idle 자동 종료** | 5분 무응답 시 프로세스 종료. 다음 메시지에서 자동 재기동 |
 | **플러그인 핫 리로드** | `~/.claude-discord-bot/plugins/`에 파일 추가하면 즉시 반영 |
@@ -216,14 +216,14 @@ npm run e2e:manual
 다음 구조가 자동으로 만들어진다:
 
 ```
-A4D - General
- ├─ #a4d-general
- ├─ #a4d-session
- └─ #a4d-usage
+General
+ ├─ #general
+ ├─ #session
+ └─ #usage
 
-A4D - Sessions
- ├─ #a4d-frontend
- ├─ #a4d-api
+Sessions
+ ├─ #frontend
+ ├─ #api
  └─ ...
 ```
 
@@ -243,7 +243,7 @@ A4D - Sessions
 /cdb new name:frontend path:/Users/me/project/frontend model:opus permission_mode:default
 ```
 
-A4D - Sessions 카테고리에 `#a4d-frontend` 채널이 생성되고, 해당 채널에서 봇을 멘션하면 지정한 디렉토리에서 Claude가 동작한다.
+Sessions 카테고리에 `#frontend` 채널이 생성되고, 해당 채널에서 봇을 멘션하면 지정한 디렉토리에서 Claude가 동작한다.
 
 ### 도구 권한 승인
 
