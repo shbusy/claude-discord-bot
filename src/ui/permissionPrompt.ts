@@ -81,19 +81,14 @@ export async function showPermissionPrompt(
 
     const decision = parseDecision(collected.customId, req.id);
     if (state) state.lastMsg = null;
-    await collected.update({
-      embeds: [embed.setColor(decision.decision === 'deny' ? 0xed4245 : 0x57f287)],
-      components: [],
-    });
+    await collected.deferUpdate().catch(() => {});
+    await msg.delete().catch(() => {});
     return decision;
   } catch {
     // Timeout — auto deny
     const decision: PermissionDecision = { type: 'permission_decision', id: req.id, decision: 'deny' };
     if (state) state.lastMsg = null;
-    await msg.edit({
-      embeds: [embed.setColor(0xed4245).setFooter({ text: '⏰ 타임아웃 — 자동 거부' })],
-      components: [],
-    }).catch(() => {});
+    await msg.delete().catch(() => {});
     return decision;
   }
 }
