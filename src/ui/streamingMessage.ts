@@ -132,7 +132,8 @@ export class StreamingMessage {
     const tail = tailThinkingLines(this.thinking);
     if (tail.length === 0) return base;
     const thinkingBlock = `\n\n> thinking\n\`\`\`\n${tail}\n\`\`\``;
-    return (base + thinkingBlock).slice(0, EMBED_DESC_LIMIT);
+    if (base.length + thinkingBlock.length > EMBED_DESC_LIMIT) return base.slice(0, EMBED_DESC_LIMIT);
+    return base + thinkingBlock;
   }
 }
 
