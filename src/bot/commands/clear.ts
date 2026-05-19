@@ -10,13 +10,14 @@ export const clearCommand: SubCommand = {
       await interaction.reply({ content: '텍스트 세션 채널에서만 사용할 수 있습니다.', ephemeral: true });
       return;
     }
+    await interaction.deferReply({ ephemeral: true });
     restoreSessionFromInteractionTopic(interaction, ctx);
     const cleared = await ctx.sessions.clearContext(interaction.channelId);
     if (!cleared) {
-      await interaction.reply({ content: '활성 세션이 없습니다.', ephemeral: true });
+      await interaction.editReply({ content: '활성 세션이 없습니다.' });
       return;
     }
     await ctx.sessions.syncTopic(interaction.channel as TextChannel);
-    await interaction.reply({ content: '🧹 컨텍스트를 초기화했습니다. 다음 메시지부터 새 대화로 시작합니다.', ephemeral: true });
+    await interaction.editReply({ content: '🧹 컨텍스트를 초기화했습니다. 다음 메시지부터 새 대화로 시작합니다.' });
   },
 };
