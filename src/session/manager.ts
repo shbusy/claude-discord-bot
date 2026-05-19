@@ -188,6 +188,23 @@ export class SessionManager {
     return true;
   }
 
+  /**
+   * Clear conversation context while keeping the channel and session settings.
+   * Equivalent to Claude Code's /clear — next message starts fresh with no prior history.
+   */
+  async clearContext(channelId: string): Promise<boolean> {
+    const session = this.sessions.get(channelId);
+    if (!session) return false;
+    if (session.runner?.isRunning) {
+      await session.runner.stop();
+    }
+    this.clearIdleTimer(channelId);
+    session.runner = null;
+    session.meta.sessionId = '';
+    session.meta.lastActiveAt = Date.now();
+    return true;
+  }
+
   async close(channelId: string): Promise<boolean> {
     const session = this.sessions.get(channelId);
     if (!session) return false;

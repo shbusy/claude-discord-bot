@@ -62,7 +62,7 @@ export const initCommand: SubCommand = {
         { name: '사용량 채널', value: `<#${usageCh.id}>`, inline: true },
         { name: '세션 카테고리', value: sessionsCat.name, inline: true },
       )
-      .setDescription('`/a4d browse` 또는 `/cdb browse`로 폴더를 고르거나 새 세션 채널을 생성할 수 있습니다.');
+      .setDescription('`/cdb browse`로 폴더를 고르거나 새 세션 채널을 생성할 수 있습니다.');
 
     await interaction.editReply({ embeds: [embed] });
   },

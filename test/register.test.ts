@@ -12,7 +12,7 @@ vi.mock('discord.js', async (importOriginal) => {
 });
 
 describe('slash command registration', () => {
-  it('submits both /cdb and /a4d command bodies to Discord REST', async () => {
+  it('submits /cdb command body to Discord REST', async () => {
     const { registerSlashCommands } = await import('../src/bot/register.js');
     const log = { info: vi.fn() };
 
@@ -34,6 +34,6 @@ describe('slash command registration', () => {
     expect(setToken).toHaveBeenCalledWith('token');
     expect(put).toHaveBeenCalledOnce();
     const call = put.mock.calls[0] as unknown as [string, { body: Array<{ name: string }> }];
-    expect(call[1].body.map((cmd) => cmd.name)).toEqual(['cdb', 'a4d']);
+    expect(call[1].body.map((cmd) => cmd.name)).toEqual(['cdb']);
   });
 });

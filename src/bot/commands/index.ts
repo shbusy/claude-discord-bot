@@ -11,6 +11,7 @@ import { closeCommand } from './close.js';
 import { usageCommand } from './usage.js';
 import { pluginCommand } from './plugin.js';
 import { configCommand } from './config.js';
+import { clearCommand } from './clear.js';
 
 const subcommands: SubCommand[] = [
   statusCommand,
@@ -24,6 +25,7 @@ const subcommands: SubCommand[] = [
   usageCommand,
   pluginCommand,
   configCommand,
+  clearCommand,
 ];
 
 const byName = new Map<string, SubCommand>(subcommands.map((c) => [c.name, c]));
@@ -32,11 +34,7 @@ export function buildCdbCommand(): SlashCommandBuilder {
   return buildRootCommand('cdb');
 }
 
-export function buildA4dCommand(): SlashCommandBuilder {
-  return buildRootCommand('a4d');
-}
-
-function buildRootCommand(name: 'cdb' | 'a4d'): SlashCommandBuilder {
+function buildRootCommand(name: 'cdb'): SlashCommandBuilder {
   const cmd = new SlashCommandBuilder().setName(name).setDescription('Claude Code Discord Bot');
   for (const s of subcommands) {
     cmd.addSubcommand((sub) => s.build(sub));
@@ -45,7 +43,7 @@ function buildRootCommand(name: 'cdb' | 'a4d'): SlashCommandBuilder {
 }
 
 export async function dispatch(interaction: ChatInputCommandInteraction, ctx: AppContext): Promise<void> {
-  if (interaction.commandName !== 'cdb' && interaction.commandName !== 'a4d') return;
+  if (interaction.commandName !== 'cdb') return;
   const sub = interaction.options.getSubcommand(true);
   const handler = byName.get(sub);
   if (!handler) {

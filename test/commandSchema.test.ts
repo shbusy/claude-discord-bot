@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildA4dCommand, buildCdbCommand } from '../src/bot/commands/index.js';
+import { buildCdbCommand } from '../src/bot/commands/index.js';
 
 interface CommandOption {
   name: string;
@@ -31,6 +31,7 @@ describe('/cdb command schema', () => {
       'usage',
       'plugin',
       'config',
+      'clear',
     ]);
   });
 
@@ -48,12 +49,4 @@ describe('/cdb command schema', () => {
     expect(newPermission?.choices?.map((o) => o.value)).not.toContain('bypassPermissions');
   });
 
-  it('also registers the Agent4Discord-compatible /a4d alias', () => {
-    const cdb = buildCdbCommand().toJSON();
-    const a4d = buildA4dCommand().toJSON();
-
-    expect(cdb.name).toBe('cdb');
-    expect(a4d.name).toBe('a4d');
-    expect((a4d.options ?? []).map((o) => o.name)).toEqual((cdb.options ?? []).map((o) => o.name));
-  });
 });

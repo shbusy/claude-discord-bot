@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { parse as parseDotenv } from 'dotenv';
-import { buildA4dCommand, buildCdbCommand } from './bot/commands/index.js';
+import { buildCdbCommand } from './bot/commands/index.js';
 import { ConfigSchema } from './config/schema.js';
 import { defaultCdbHome } from './config/defaults.js';
 
@@ -41,13 +41,13 @@ export async function collectDoctorChecks(envPath: string): Promise<DoctorCheck[
 
   checks.push(await checkClaude(parsedEnv.CLAUDE_BIN || 'claude'));
 
-  const commands = [buildCdbCommand().toJSON(), buildA4dCommand().toJSON()];
+  const commands = [buildCdbCommand().toJSON()];
   const commandNames = commands.map((cmd) => cmd.name);
   const subcommandNames = commands.flatMap((command) => (command.options ?? []).map((o) => o.name));
   checks.push({
     name: 'slash commands',
     ok:
-      ['cdb', 'a4d'].every((name) => commandNames.includes(name)) &&
+      commandNames.includes('cdb') &&
       ['init', 'browse', 'resume', 'model', 'close'].every((name) => subcommandNames.includes(name)),
     detail: commands.map((cmd) => `/${cmd.name}: ${(cmd.options ?? []).map((o) => o.name).join(', ')}`).join(' | '),
   });
