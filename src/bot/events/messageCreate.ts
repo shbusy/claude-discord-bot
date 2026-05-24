@@ -2,6 +2,7 @@ import { EmbedBuilder, Events, type Message, type SendableChannels, type TextCha
 import type { AppContext } from '../types.js';
 import { StreamingMessage } from '../../ui/streamingMessage.js';
 import { showPermissionPrompt, type PermissionState } from '../../ui/permissionPrompt.js';
+import { showAskUserQuestion } from '../../ui/askUserQuestion.js';
 import { ThreadRouter } from '../../ui/threadRouter.js';
 import { UsageTracker } from '../../usage/tracker.js';
 import {
@@ -71,6 +72,8 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
     onThinking: (delta) => stream.appendThinking(delta),
     onToolUse: (b) => {
       stream.setTool(b.name);
+      // AskUserQuestion은 채널에 인터랙티브 UI가 뜨므로 별도 스레드를 만들지 않는다.
+      if (b.name === 'AskUserQuestion') return;
       const current = ctx.sessions.get(msg.channelId);
       const outputFile = extractOutputFilePath(b.name, b.input, current?.meta.cwd ?? ctx.config.defaultCwd);
       if (outputFile) outputFiles.set(b.id, outputFile);
@@ -128,6 +131,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
       });
     },
     onPermission: (req) => showPermissionPrompt(msg.channel as SendableChannels, req, ctx.config.allowedUserIds, { state: permState }),
+    onAskUserQuestion: (req) => showAskUserQuestion(msg.channel as SendableChannels, req, ctx.config.allowedUserIds),
   });
 }
 

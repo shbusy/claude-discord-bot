@@ -5,7 +5,14 @@ import { ClaudeRunner } from '../claude/runner.js';
 import type { Config } from '../config/schema.js';
 import type { SessionMeta } from './topicCodec.js';
 import { encodeTopic, decodeTopic } from './topicCodec.js';
-import type { UsageDelta, FinalResult, PermissionRequestEvent, PermissionDecision } from '../claude/types.js';
+import type {
+  UsageDelta,
+  FinalResult,
+  PermissionRequestEvent,
+  PermissionDecision,
+  AskUserQuestionEvent,
+  AskUserQuestionAnswer,
+} from '../claude/types.js';
 import { assertRealPathInsideRoot, isPathInsideRoot, resolveWithinRoot } from '../util/pathSecurity.js';
 
 export interface ChannelSession {
@@ -25,6 +32,7 @@ export interface SendCallbacks {
   onError: (err: Error) => void;
   onEnd: (result: FinalResult) => void;
   onPermission?: (req: PermissionRequestEvent) => Promise<PermissionDecision>;
+  onAskUserQuestion?: (req: AskUserQuestionEvent) => Promise<AskUserQuestionAnswer>;
 }
 
 export interface SessionManagerDeps {
@@ -299,6 +307,23 @@ export class SessionManager {
         }).catch((err) => {
           this.deps.log.error({ err }, '권한 프롬프트 처리 실패');
           runner.sendPermission({ type: 'permission_decision', id: req.id, decision: 'deny' });
+        });
+      });
+    }
+    if (callbacks.onAskUserQuestion) {
+      runner.on('askUserQuestion', (req) => {
+        void callbacks.onAskUserQuestion!(req).then((answer) => {
+          if (runner.isRunning) {
+            runner.sendQuestionAnswer(answer);
+          }
+        }).catch((err) => {
+          this.deps.log.error({ err }, 'AskUserQuestion 처리 실패');
+          runner.sendQuestionAnswer({
+            type: 'ask_user_question_answer',
+            id: req.id,
+            answers: {},
+            interrupted: true,
+          });
         });
       });
     }

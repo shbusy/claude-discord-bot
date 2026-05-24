@@ -9,6 +9,9 @@ import {
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import type {
+  AskUserQuestionAnswer,
+  AskUserQuestionEvent,
+  AskUserQuestionItem,
   FinalResult,
   PermissionDecision,
   PermissionRequestEvent,
@@ -26,6 +29,7 @@ export interface RunnerEvents {
   toolResult: (block: { toolUseId: string; content: string; isError?: boolean }) => void;
   thinking: (delta: string) => void;
   permission: (req: PermissionRequestEvent) => void;
+  askUserQuestion: (req: AskUserQuestionEvent) => void;
   usage: (u: UsageDelta) => void;
   rateLimit: (info: unknown) => void;
   raw: (e: StreamEvent) => void;
@@ -62,6 +66,7 @@ export class ClaudeRunner extends EventEmitter {
   private abortController: AbortController = new AbortController();
   private resolveNext: ((msg: MessageStreamItem) => void) | null = null;
   private pendingPermissions = new Map<string, (decision: PermissionResult) => void>();
+  private pendingQuestions = new Map<string, (decision: PermissionResult) => void>();
   private sessionId: string | null = null;
   private model: string | null = null;
   private cwdSnapshot: string | null = null;
@@ -95,6 +100,18 @@ export class ClaudeRunner extends EventEmitter {
     const canUseTool: CanUseTool = (toolName, input, info) => {
       return new Promise<PermissionResult>((resolve) => {
         const toolUseID = info.toolUseID;
+        if (toolName === 'AskUserQuestion') {
+          this.pendingQuestions.set(toolUseID, resolve);
+          const questions = extractQuestions(input);
+          const req: AskUserQuestionEvent = {
+            type: 'ask_user_question',
+            id: toolUseID,
+            questions,
+            session_id: this.sessionId ?? '',
+          };
+          this.emit('askUserQuestion', req);
+          return;
+        }
         this.pendingPermissions.set(toolUseID, resolve);
         const req: PermissionRequestEvent = {
           type: 'permission_request',
@@ -160,6 +177,22 @@ export class ClaudeRunner extends EventEmitter {
     resolver({ behavior: 'allow', updatedInput: input });
   }
 
+  /**
+   * Deliver the user's answer to an `AskUserQuestion` tool call.
+   * We respond via `behavior: 'deny'` because the SDK has no API for the
+   * host to inject a tool result directly; the `message` field is passed
+   * through to the model as the tool_result body, where we encode the
+   * standard AskUserQuestionOutput JSON so the model recognises it as a
+   * normal answer rather than a denial.
+   */
+  sendQuestionAnswer(answer: AskUserQuestionAnswer): void {
+    const resolver = this.pendingQuestions.get(answer.id);
+    if (!resolver) return;
+    this.pendingQuestions.delete(answer.id);
+    const payload = JSON.stringify({ answers: answer.answers, interrupted: answer.interrupted });
+    resolver({ behavior: 'deny', message: payload });
+  }
+
   /** End the message stream so the query terminates after the current turn. */
   endInput(): void {
     if (!this.started || this.finished) return;
@@ -185,6 +218,14 @@ export class ClaudeRunner extends EventEmitter {
       resolve({ behavior: 'deny', message: 'Session stopped' });
     }
     this.pendingPermissions.clear();
+    // Drain any pending AskUserQuestion calls with an interrupted answer
+    for (const resolve of this.pendingQuestions.values()) {
+      resolve({
+        behavior: 'deny',
+        message: JSON.stringify({ answers: {}, interrupted: true }),
+      });
+    }
+    this.pendingQuestions.clear();
     if (this.resolveNext) {
       const r = this.resolveNext;
       this.resolveNext = null;
@@ -416,6 +457,35 @@ function mapUsage(
     costUsd,
     final,
   };
+}
+
+function extractQuestions(input: unknown): AskUserQuestionItem[] {
+  if (!input || typeof input !== 'object') return [];
+  const raw = (input as { questions?: unknown }).questions;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((q): AskUserQuestionItem | null => {
+      if (!q || typeof q !== 'object') return null;
+      const obj = q as Record<string, unknown>;
+      const question = typeof obj.question === 'string' ? obj.question : '';
+      const header = typeof obj.header === 'string' ? obj.header : '';
+      const options: AskUserQuestionItem['options'] = Array.isArray(obj.options)
+        ? obj.options.flatMap((opt): AskUserQuestionItem['options'] => {
+            if (!opt || typeof opt !== 'object') return [];
+            const o = opt as Record<string, unknown>;
+            const label = typeof o.label === 'string' ? o.label : '';
+            if (!label) return [];
+            const description = typeof o.description === 'string' ? o.description : '';
+            const item: AskUserQuestionItem['options'][number] = { label, description };
+            if (typeof o.preview === 'string') item.preview = o.preview;
+            return [item];
+          })
+        : [];
+      const multiSelect = Boolean(obj.multiSelect);
+      if (!question || options.length === 0) return null;
+      return { question, header, options, multiSelect };
+    })
+    .filter((q): q is AskUserQuestionItem => q !== null);
 }
 
 function isAbortError(err: unknown): boolean {

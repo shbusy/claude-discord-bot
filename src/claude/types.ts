@@ -127,6 +127,33 @@ export interface PermissionRequestEvent {
   session_id: string;
 }
 
+export interface AskUserQuestionOption {
+  label: string;
+  description: string;
+  preview?: string;
+}
+
+export interface AskUserQuestionItem {
+  question: string;
+  header: string;
+  options: AskUserQuestionOption[];
+  multiSelect?: boolean;
+}
+
+export interface AskUserQuestionEvent {
+  type: 'ask_user_question';
+  id: string;
+  questions: AskUserQuestionItem[];
+  session_id: string;
+}
+
+export interface AskUserQuestionAnswer {
+  type: 'ask_user_question_answer';
+  id: string;
+  answers: { [question: string]: string };
+  interrupted: boolean;
+}
+
 export type StreamEvent =
   | SystemInitEvent
   | AssistantEvent
