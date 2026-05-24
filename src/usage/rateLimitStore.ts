@@ -35,7 +35,12 @@ export function shouldNotifyBucket(type: RateLimitType): boolean {
   const current = store.get(type);
   if (!current) return false;
   const currentBucket = Math.floor(current.utilization * 10);
-  const lastBucket = lastNotifiedBucket.get(type) ?? -1;
+  if (!lastNotifiedBucket.has(type)) {
+    // 처음 기록 시: 현재 버킷으로 초기화만 하고 알림 없음 (재시작 false positive 방지)
+    lastNotifiedBucket.set(type, currentBucket);
+    return false;
+  }
+  const lastBucket = lastNotifiedBucket.get(type)!;
   if (currentBucket > lastBucket) {
     lastNotifiedBucket.set(type, currentBucket);
     return true;
