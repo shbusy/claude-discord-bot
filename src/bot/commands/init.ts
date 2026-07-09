@@ -11,6 +11,7 @@ import type { SubCommand } from '../types.js';
 import {
   GENERAL_CATEGORY_NAMES,
   PRIMARY_BROWSER_CHANNEL_NAME,
+  PRIMARY_CHAT_CHANNEL_NAME,
   PRIMARY_GENERAL_CATEGORY_NAME,
   PRIMARY_GENERAL_CHANNEL_NAME,
   PRIMARY_SESSIONS_CATEGORY_NAME,
@@ -43,6 +44,7 @@ export const initCommand: SubCommand = {
     );
 
     const generalCh = await findOrCreateTextChannel(guild, PRIMARY_GENERAL_CHANNEL_NAME, mainCat.id);
+    const chatCh = await findOrCreateTextChannel(guild, PRIMARY_CHAT_CHANNEL_NAME, mainCat.id);
     const browserCh = await findOrCreateTextChannel(guild, PRIMARY_BROWSER_CHANNEL_NAME, mainCat.id);
     const usageCh = await findOrCreateTextChannel(guild, PRIMARY_USAGE_CHANNEL_NAME, mainCat.id);
     const sessionsCat = await findOrCreateCategory(
@@ -58,6 +60,7 @@ export const initCommand: SubCommand = {
       .addFields(
         { name: '카테고리', value: mainCat.name, inline: true },
         { name: '일반 채널', value: `<#${generalCh.id}>`, inline: true },
+        { name: '채팅 채널', value: `<#${chatCh.id}>`, inline: true },
         { name: '세션 브라우저', value: `<#${browserCh.id}>`, inline: true },
         { name: '사용량 채널', value: `<#${usageCh.id}>`, inline: true },
         { name: '세션 카테고리', value: sessionsCat.name, inline: true },
