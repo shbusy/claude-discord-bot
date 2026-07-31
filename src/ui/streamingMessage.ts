@@ -82,6 +82,10 @@ export class StreamingMessage {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    // 진행 중인 flush가 있으면 완료될 때까지 대기 후 최종 flush
+    while (this.flushing) {
+      await new Promise<void>(r => setTimeout(r, 16));
+    }
     await this.flushNow();
   }
 
