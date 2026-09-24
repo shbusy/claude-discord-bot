@@ -97,6 +97,16 @@ export class ClaudeRunner extends EventEmitter {
     if (this.started) throw new Error('runner already started');
     this.started = true;
 
+    const resolvedPermissionMode = mapPermissionMode(this.opts.permissionMode);
+
+    // SDK가 canUseTool을 호출하는 시점은 이미 classifier(auto)/규칙이 판단을
+    // 위임한 상태다. CLI는 auto/acceptEdits 모드에서 이 콜백을 자체적으로
+    // 통과시키므로 프롬프트가 뜨지 않는다. 봇도 동일 UX를 내려면 여기서
+    // 그대로 allow를 반환해야 한다 — Discord로 요청을 던지면 CLI에는 없는
+    // 프롬프트가 사용자에게 계속 튀는 회귀가 된다.
+    const autoAllowMode =
+      resolvedPermissionMode === 'auto' || resolvedPermissionMode === 'acceptEdits';
+
     const canUseTool: CanUseTool = (toolName, input, info) => {
       return new Promise<PermissionResult>((resolve) => {
         const toolUseID = info.toolUseID;
@@ -110,6 +120,10 @@ export class ClaudeRunner extends EventEmitter {
             session_id: this.sessionId ?? '',
           };
           this.emit('askUserQuestion', req);
+          return;
+        }
+        if (autoAllowMode) {
+          resolve({ behavior: 'allow', updatedInput: input });
           return;
         }
         this.pendingPermissions.set(toolUseID, resolve);
@@ -129,7 +143,10 @@ export class ClaudeRunner extends EventEmitter {
       options: {
         cwd: this.opts.cwd,
         model: this.opts.model,
-        permissionMode: mapPermissionMode(this.opts.permissionMode),
+        permissionMode: resolvedPermissionMode,
+        ...(resolvedPermissionMode === 'bypassPermissions'
+          ? { allowDangerouslySkipPermissions: true }
+          : {}),
         includePartialMessages: this.opts.includePartialMessages !== false,
         ...(this.opts.resumeSessionId ? { resume: this.opts.resumeSessionId } : {}),
         ...(this.opts.appendSystemPrompt

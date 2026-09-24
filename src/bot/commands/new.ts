@@ -29,11 +29,11 @@ export const newCommand: SubCommand = {
           .setName('permission_mode')
           .setDescription('권한 모드')
           .addChoices(
-            { name: 'default', value: 'default' },
-            { name: 'acceptEdits', value: 'acceptEdits' },
-            { name: 'auto', value: 'auto' },
-            { name: 'dontAsk', value: 'dontAsk' },
-            { name: 'plan', value: 'plan' },
+            { name: 'bypassPermissions (완전 자동)', value: 'bypassPermissions' },
+            { name: 'auto (분류기 기반 자동)', value: 'auto' },
+            { name: 'acceptEdits (편집만 자동)', value: 'acceptEdits' },
+            { name: 'default (매번 확인)', value: 'default' },
+            { name: 'plan (툴 실행 없음)', value: 'plan' },
           )
           .setRequired(false),
       ),

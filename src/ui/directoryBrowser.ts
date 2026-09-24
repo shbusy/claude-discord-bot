@@ -24,6 +24,19 @@ import { isPathInsideRoot, resolveWithinRoot } from '../util/pathSecurity.js';
 const CUSTOM_PREFIX = 'cdb_browse';
 const pathTokens = new Map<string, { path: string; permissionMode: string; root: string }>();
 
+const DEFAULT_BROWSE_PERMISSION_MODE = 'auto';
+
+const PERMISSION_MODE_OPTIONS: Array<{ value: string; label: string; description: string }> = [
+  { value: 'default', label: 'default', description: 'Shift+Tab: 위험 작업마다 사용자 확인' },
+  { value: 'acceptEdits', label: 'auto-accept edits', description: 'Shift+Tab: 파일 편집만 자동 수락' },
+  { value: 'plan', label: 'plan mode', description: 'Shift+Tab: 계획 모드, 툴 실행 없음' },
+  { value: 'bypassPermissions', label: 'bypass permissions', description: 'Shift+Tab: 완전 자동, 모든 툴 프롬프트 없음' },
+];
+
+function isSelectablePermissionMode(value: string): boolean {
+  return PERMISSION_MODE_OPTIONS.some((o) => o.value === value);
+}
+
 export async function showDirectoryBrowser(
   interaction: ChatInputCommandInteraction,
   ctx: AppContext,
@@ -32,7 +45,7 @@ export async function showDirectoryBrowser(
 ): Promise<void> {
   const root = resolve(ctx.config.defaultCwd);
   const cwd = resolveWithinRoot(startPath, root);
-  const payload = await buildBrowserPayload(cwd, root, permissionMode ?? ctx.config.permissionMode);
+  const payload = await buildBrowserPayload(cwd, root, permissionMode ?? DEFAULT_BROWSE_PERMISSION_MODE);
   await interaction.reply({ ...payload, ephemeral: true });
 }
 
@@ -68,6 +81,21 @@ export async function handleDirectoryBrowserInteraction(
   }
 
   if (interaction.isStringSelectMenu()) {
+    const [, selectAction, permToken] = interaction.customId.split(':');
+    if (selectAction === 'permselect') {
+      const current = pathTokens.get(permToken ?? '');
+      if (!current) {
+        await interaction.reply({ content: '브라우저 상태가 만료되었습니다. `/cdb browse`를 다시 실행해주세요.', ephemeral: true });
+        return true;
+      }
+      const nextMode = interaction.values[0];
+      if (!nextMode || !isSelectablePermissionMode(nextMode)) {
+        await interaction.reply({ content: '알 수 없는 권한 모드입니다.', ephemeral: true });
+        return true;
+      }
+      await interaction.update(await buildBrowserPayload(current.path, current.root, nextMode));
+      return true;
+    }
     const selected = pathTokens.get(interaction.values[0] ?? '');
     if (!selected) {
       await interaction.reply({ content: '선택한 경로가 만료되었습니다. `/cdb browse`를 다시 실행해주세요.', ephemeral: true });
@@ -132,6 +160,22 @@ async function buildBrowserPayload(cwd: string, root: string, permissionMode: st
   } else {
     embed.addFields({ name: '하위 폴더', value: '표시할 폴더가 없습니다.' });
   }
+
+  rows.push(
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`${CUSTOM_PREFIX}:permselect:${currentToken}`)
+        .setPlaceholder(`권한 모드: ${permissionMode}`)
+        .addOptions(
+          PERMISSION_MODE_OPTIONS.map((opt) => ({
+            label: opt.label,
+            value: opt.value,
+            description: opt.description,
+            default: opt.value === permissionMode,
+          })),
+        ),
+    ),
+  );
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
