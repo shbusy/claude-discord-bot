@@ -80,7 +80,7 @@ export function renderEnv(a: SetupAnswers): string {
     `PERMISSION_MODE=${a.permissionMode}`,
     'DEFAULT_LANG=ko',
     `DEFAULT_CWD=${a.defaultCwd ?? ''}`,
-    'IDLE_TIMEOUT_MS=300000',
+    'IDLE_TIMEOUT_MS=3300000',
     '',
     'CDB_HOME=',
     'LOG_LEVEL=info',

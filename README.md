@@ -144,7 +144,7 @@ CLAUDE_BIN=claude
 DEFAULT_MODEL=sonnet
 DEFAULT_CWD=/Users/me/projects
 PERMISSION_MODE=default
-IDLE_TIMEOUT_MS=300000
+IDLE_TIMEOUT_MS=3300000
 ```
 
 > **보안**: `ALLOWED_USER_IDS`가 비어있으면 봇이 부팅을 거부한다. 반드시 본인 ID를 넣어야 한다. Discord에서 지정하는 세션 경로와 폴더 탐색은 `DEFAULT_CWD` 아래로 제한된다.
@@ -377,7 +377,7 @@ export default plugin;
 | `PERMISSION_MODE` | `default` | Claude 권한 모드 (`acceptEdits` / `auto` / `default` / `dontAsk` / `plan`) |
 | `DEFAULT_LANG` | `ko` | 기본 언어 |
 | `DEFAULT_CWD` | `$HOME` | 기본 작업 디렉토리. Discord에서 지정하는 세션 경로는 이 경로 아래로 제한 |
-| `IDLE_TIMEOUT_MS` | `300000` | runner idle 종료 시간 (ms) |
+| `IDLE_TIMEOUT_MS` | `3300000` | 대기 중인 Claude 프로세스 종료 시간 (ms). 프롬프트 캐시 TTL(1h)보다 짧게 유지 |
 | `CDB_HOME` | `~/.claude-discord-bot` | 데이터·로그·플러그인 디렉토리 |
 | `LOG_LEVEL` | `info` | 로그 레벨 (`debug` / `info` / `warn` / `error`) |
 

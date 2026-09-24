@@ -8,7 +8,7 @@ export const stopCommand: SubCommand = {
     restoreSessionFromInteractionTopic(interaction, ctx);
     const stopped = await ctx.sessions.stop(interaction.channelId);
     if (stopped) {
-      await interaction.reply({ content: '⏹ 응답을 중단했습니다.', ephemeral: true });
+      await interaction.reply({ content: '⏹ 응답을 중단했습니다. 대화는 이어집니다.', ephemeral: true });
     } else {
       await interaction.reply({ content: '진행 중인 응답이 없습니다.', ephemeral: true });
     }

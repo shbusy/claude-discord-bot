@@ -255,4 +255,30 @@ describe('ClaudeRunner', () => {
       final: true,
     })]);
   });
+
+  it('reports per-turn cost from the cumulative total and skips empty usage of interrupted turns', () => {
+    const runner = new ClaudeRunner({ bin: 'claude', cwd: '/tmp' });
+    const usage: Array<{ costUsd?: number; inputTokens: number; final?: boolean }> = [];
+    const ends: Array<number | undefined> = [];
+    runner.on('usage', (u) => usage.push(u));
+    runner.on('end', (f) => ends.push(f.total_cost_usd));
+    const handle = (msg: unknown) => Reflect.apply(Reflect.get(runner, 'handleMessage'), runner, [msg]);
+    const result = (total: number, tokens: number) => ({
+      type: 'result',
+      subtype: tokens ? 'success' : 'error_during_execution',
+      is_error: false,
+      duration_ms: 1,
+      num_turns: 1,
+      session_id: 's',
+      total_cost_usd: total,
+      usage: { input_tokens: tokens, output_tokens: tokens, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    });
+
+    handle(result(0.02, 10));
+    handle(result(0.02, 0));
+    handle(result(0.05, 10));
+
+    expect(usage.map((u) => u.costUsd?.toFixed(2))).toEqual(['0.02', '0.03']);
+    expect(ends.map((c) => c?.toFixed(2))).toEqual(['0.02', '0.00', '0.03']);
+  });
 });

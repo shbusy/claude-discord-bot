@@ -72,6 +72,10 @@ export class ClaudeRunner extends EventEmitter {
   private cwdSnapshot: string | null = null;
   private started = false;
   private finished = false;
+  /** A turn is in flight: set by send(), cleared on the turn's result. */
+  private busy = false;
+  /** `total_cost_usd` is cumulative over the process lifetime; kept to derive per-turn cost. */
+  private cumulativeCostUsd = 0;
   private emittedPartialDeltas = false;
   private partialTextAccum = '';
   private partialThinkingAccum = '';
@@ -89,8 +93,13 @@ export class ClaudeRunner extends EventEmitter {
   get currentCwd(): string | null {
     return this.cwdSnapshot;
   }
-  get isRunning(): boolean {
+  /** The Claude Code process is up and can take another turn without a resume. */
+  get isAlive(): boolean {
     return this.started && !this.finished;
+  }
+  /** A turn is in flight. */
+  get isBusy(): boolean {
+    return this.isAlive && this.busy;
   }
 
   async start(): Promise<void> {
@@ -174,6 +183,7 @@ export class ClaudeRunner extends EventEmitter {
   async send(prompt: string): Promise<void> {
     if (!this.started) throw new Error('runner not started');
     if (this.finished) throw new Error('runner finished');
+    this.busy = true;
     const msg: SDKUserMessage = {
       type: 'user',
       message: { role: 'user', content: prompt },
@@ -218,7 +228,30 @@ export class ClaudeRunner extends EventEmitter {
     this.abortController.abort();
   }
 
-  async stop(_signal: NodeJS.Signals = 'SIGINT'): Promise<void> {
+  /**
+   * Abort the in-flight turn but keep the process (and its prompt cache
+   * prefix) alive. The SDK still emits a `result` for the interrupted turn,
+   * so `end` fires as usual.
+   */
+  async interrupt(): Promise<boolean> {
+    if (!this.isBusy || !this.q) return false;
+    this.drainPending('Interrupted by user');
+    try {
+      await this.q.interrupt();
+    } catch {
+      // ignore — the turn may have ended in the meantime
+    }
+    return true;
+  }
+
+  /** Switch model in the live process; takes effect on the next API call. */
+  async setModel(model: string): Promise<void> {
+    if (!this.isAlive || !this.q) return;
+    await this.q.setModel(model);
+  }
+
+  /** Terminate the process. */
+  async close(): Promise<void> {
     if (!this.started) return;
     if (this.finished) return;
     this.finished = true;
@@ -230,12 +263,19 @@ export class ClaudeRunner extends EventEmitter {
         // ignore
       }
     }
-    // Drain any pending permissions as denials
+    this.drainPending('Session stopped');
+    if (this.resolveNext) {
+      const r = this.resolveNext;
+      this.resolveNext = null;
+      r({ __end: true });
+    }
+  }
+
+  private drainPending(reason: string): void {
     for (const resolve of this.pendingPermissions.values()) {
-      resolve({ behavior: 'deny', message: 'Session stopped' });
+      resolve({ behavior: 'deny', message: reason });
     }
     this.pendingPermissions.clear();
-    // Drain any pending AskUserQuestion calls with an interrupted answer
     for (const resolve of this.pendingQuestions.values()) {
       resolve({
         behavior: 'deny',
@@ -243,11 +283,6 @@ export class ClaudeRunner extends EventEmitter {
       });
     }
     this.pendingQuestions.clear();
-    if (this.resolveNext) {
-      const r = this.resolveNext;
-      this.resolveNext = null;
-      r({ __end: true });
-    }
   }
 
   private async pushToStream(item: MessageStreamItem): Promise<void> {
@@ -422,8 +457,16 @@ export class ClaudeRunner extends EventEmitter {
             cache_read_input_tokens?: number;
           };
         };
-        if (r.usage) {
-          this.emit('usage', mapUsage(r.usage, r.total_cost_usd, true));
+        // 프로세스가 여러 턴을 처리하므로 total_cost_usd는 누적값이다. 턴 비용으로 환산한다.
+        let turnCostUsd: number | undefined;
+        if (typeof r.total_cost_usd === 'number') {
+          turnCostUsd = Math.max(0, r.total_cost_usd - this.cumulativeCostUsd);
+          this.cumulativeCostUsd = r.total_cost_usd;
+        }
+        // 중단된 턴은 result usage가 전부 0으로 온다. 그대로 final로 내보내면 이미
+        // 스트리밍으로 집계한 토큰을 0으로 덮어쓰므로 건너뛴다.
+        if (r.usage && !isEmptyUsage(r.usage)) {
+          this.emit('usage', mapUsage(r.usage, turnCostUsd, true));
         }
         const final: ResultEvent = {
           type: 'result',
@@ -434,9 +477,10 @@ export class ClaudeRunner extends EventEmitter {
           num_turns: r.num_turns,
           result: r.result,
           session_id: r.session_id,
-          total_cost_usd: r.total_cost_usd,
+          total_cost_usd: turnCostUsd,
           usage: r.usage,
         };
+        this.busy = false;
         this.emit('end', final);
         return;
       }
@@ -454,6 +498,15 @@ export class ClaudeRunner extends EventEmitter {
 function buildSafeEnv(): Record<string, string | undefined> {
   const { DISCORD_TOKEN, DISCORD_CLIENT_ID, ALLOWED_USER_IDS, ...safeEnv } = process.env;
   return safeEnv;
+}
+
+function isEmptyUsage(u: {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}): boolean {
+  return !u.input_tokens && !u.output_tokens && !u.cache_creation_input_tokens && !u.cache_read_input_tokens;
 }
 
 function mapUsage(

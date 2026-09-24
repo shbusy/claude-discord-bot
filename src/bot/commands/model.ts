@@ -31,7 +31,7 @@ export const modelCommand: SubCommand = {
     }
 
     const session = ctx.sessions.get(interaction.channelId)!;
-    const isRunning = session.runner?.isRunning === true;
+    const isAlive = session.runner?.isAlive === true;
 
     await interaction.reply({
       embeds: [
@@ -40,7 +40,7 @@ export const modelCommand: SubCommand = {
           .setDescription(`모델이 \`${model}\`로 변경되었습니다.`)
           .addFields({
             name: '적용 시점',
-            value: isRunning ? '현재 실행 중인 세션 종료 후 다음 메시지부터' : '다음 메시지부터',
+            value: isAlive ? '즉시 (실행 중인 세션에 바로 반영)' : '다음 메시지부터',
           })
           .setColor(0x5865f2),
       ],

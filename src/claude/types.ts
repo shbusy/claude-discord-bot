@@ -82,6 +82,7 @@ export interface ResultEvent {
   num_turns: number;
   result?: string;
   session_id: string;
+  /** Cost of this turn only (the runner converts the SDK's process-cumulative value). */
   total_cost_usd?: number;
   usage?: {
     input_tokens?: number;

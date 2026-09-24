@@ -15,6 +15,7 @@ export const ConfigSchema = z.object({
   defaultCwd: z.string(),
   cdbHome: z.string(),
   logLevel: z.string().default('info'),
-  idleTimeoutMs: z.number().int().positive().default(5 * 60 * 1000),
+  // 프롬프트 캐시 TTL(1시간)보다 약간 짧게. 그 이상 들고 있어도 캐시는 이미 만료된다.
+  idleTimeoutMs: z.number().int().positive().default(55 * 60 * 1000),
 });
 export type Config = z.infer<typeof ConfigSchema>;
