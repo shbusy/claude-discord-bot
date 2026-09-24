@@ -73,11 +73,12 @@ function printHelp(): void {
 }
 
 main().catch(async (err: unknown) => {
-  const { formatConfigError } = await import('../src/config/load.js');
+  const { formatConfigError, EXIT_CONFIG_ERROR } = await import('../src/config/load.js');
   const configMessage = formatConfigError(err);
   if (configMessage) {
+    // 재시작해도 낫지 않는 오류다. start-bot.sh가 이 코드를 보고 재기동 루프를 멈춘다.
     process.stderr.write(`${configMessage}\n`);
-    process.exit(1);
+    process.exit(EXIT_CONFIG_ERROR);
   }
   process.stderr.write(`fatal: ${(err as Error).stack ?? String(err)}\n`);
   process.exit(1);

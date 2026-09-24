@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { loadConfig } from './config/load.js';
+import { loadConfig, EXIT_CONFIG_ERROR } from './config/load.js';
 import { createLogger } from './util/logger.js';
 import { createClient } from './bot/client.js';
 import { registerReady } from './bot/events/ready.js';
@@ -17,7 +17,7 @@ export async function run(envPath?: string): Promise<void> {
 
   if (cfg.allowedUserIds.length === 0) {
     log.error('ALLOWED_USER_IDS가 비어 있습니다. 보안상 부팅을 거부합니다.');
-    process.exit(1);
+    process.exit(EXIT_CONFIG_ERROR);
   }
 
   const client = createClient();
