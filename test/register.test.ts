@@ -25,6 +25,7 @@ describe('slash command registration', () => {
       defaultModel: 'sonnet',
       permissionMode: 'default',
       defaultLang: 'ko',
+      thinkingLang: 'off',
       defaultCwd: '/work',
       cdbHome: '/tmp/cdb',
       logLevel: 'info',

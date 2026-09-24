@@ -69,6 +69,7 @@ function makeConfig(): Config {
     defaultModel: 'sonnet',
     permissionMode: 'default',
     defaultLang: 'ko',
+    thinkingLang: 'off',
     defaultCwd: mkdtempSync(join(tmpdir(), 'cdb-sess-')),
     cdbHome: '/tmp/cdb',
     logLevel: 'info',

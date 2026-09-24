@@ -59,18 +59,40 @@ export interface SessionManagerDeps {
   log: Logger;
 }
 
-/**
- * Build a system-prompt suffix that forces extended thinking (and final
- * responses) into the configured language, so the "thinking" block shown in
- * Discord is consistently localized across new sessions.
- */
-function buildLanguageInstruction(lang: string): string | undefined {
+function isOff(lang: string): boolean {
   const normalized = lang.trim().toLowerCase();
-  if (!normalized || normalized === 'en') return undefined;
-  if (normalized === 'ko' || normalized.startsWith('ko-')) {
-    return '항상 한국어로 사고(thinking)하고 한국어로 답변하라. 코드, 식별자, 명령어 등 원문 그대로 두어야 의미가 보존되는 부분은 예외다.';
+  return !normalized || normalized === 'off' || normalized === 'none';
+}
+
+function isKorean(lang: string): boolean {
+  const normalized = lang.trim().toLowerCase();
+  return normalized === 'ko' || normalized.startsWith('ko-');
+}
+
+/**
+ * Build a system-prompt suffix that pins the response language, and — only
+ * when explicitly configured — the extended-thinking language too. Forcing
+ * thinking into Korean inflates output tokens (the priciest kind), so it is
+ * off by default.
+ */
+export function buildLanguageInstruction(lang: string, thinkingLang = 'off'): string | undefined {
+  const parts: string[] = [];
+  const respond = lang.trim().toLowerCase();
+  if (!isOff(lang) && respond !== 'en') {
+    parts.push(
+      isKorean(lang)
+        ? '항상 한국어로 답변하라. 코드, 식별자, 명령어 등 원문 그대로 두어야 의미가 보존되는 부분은 예외다.'
+        : `Always respond in ${lang}. Keep code, identifiers, and commands in their original form when translation would distort meaning.`,
+    );
   }
-  return `Always think and respond in ${lang}. Keep code, identifiers, and commands in their original form when translation would distort meaning.`;
+  if (!isOff(thinkingLang)) {
+    parts.push(
+      isKorean(thinkingLang)
+        ? '사고(thinking)도 한국어로 하라.'
+        : `Also think in ${thinkingLang}.`,
+    );
+  }
+  return parts.length > 0 ? parts.join(' ') : undefined;
 }
 
 export class SessionManager {
@@ -321,7 +343,7 @@ export class SessionManager {
       permissionMode: meta.permissionMode ?? this.deps.config.permissionMode,
       includePartialMessages: true,
       resumeSessionId: meta.sessionId || undefined,
-      appendSystemPrompt: buildLanguageInstruction(this.deps.config.defaultLang),
+      appendSystemPrompt: buildLanguageInstruction(this.deps.config.defaultLang, this.deps.config.thinkingLang),
     };
     return new ClaudeRunner(opts);
   }

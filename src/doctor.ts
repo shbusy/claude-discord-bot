@@ -65,6 +65,7 @@ function checkEnvValues(parsed: Record<string, string>): DoctorCheck {
     defaultModel: parsed.DEFAULT_MODEL || 'sonnet',
     permissionMode: parsed.PERMISSION_MODE || 'default',
     defaultLang: parsed.DEFAULT_LANG || 'ko',
+    thinkingLang: parsed.THINKING_LANG || 'off',
     defaultCwd: parsed.DEFAULT_CWD || homedir(),
     cdbHome: parsed.CDB_HOME || defaultCdbHome(),
     logLevel: parsed.LOG_LEVEL || 'info',

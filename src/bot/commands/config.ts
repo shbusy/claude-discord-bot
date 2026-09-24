@@ -11,6 +11,7 @@ export const configCommand: SubCommand = {
       .addFields(
         { name: '기본 모델', value: ctx.config.defaultModel, inline: true },
         { name: '기본 언어', value: ctx.config.defaultLang, inline: true },
+        { name: 'thinking 언어', value: ctx.config.thinkingLang, inline: true },
         { name: '기본 작업 디렉토리', value: ctx.config.defaultCwd, inline: true },
         { name: 'claude 바이너리', value: ctx.config.claudeBin, inline: true },
         { name: 'idle 타임아웃', value: `${ctx.config.idleTimeoutMs / 1000}s`, inline: true },

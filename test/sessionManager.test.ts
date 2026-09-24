@@ -12,6 +12,7 @@ const config = {
   defaultModel: 'sonnet',
   permissionMode: 'default',
   defaultLang: 'ko',
+  thinkingLang: 'off',
   defaultCwd: '/work',
   cdbHome: '/tmp/cdb',
   logLevel: 'info',
@@ -52,5 +53,21 @@ describe('SessionManager model switching', () => {
     });
 
     expect(sessions.restoreFromTopic('channel', topic)).toBe(false);
+  });
+});
+
+describe('buildLanguageInstruction', () => {
+  it('pins only the response language by default', async () => {
+    const { buildLanguageInstruction } = await import('../src/session/manager.js');
+    const text = buildLanguageInstruction('ko');
+    expect(text).toContain('한국어로 답변');
+    expect(text).not.toContain('thinking');
+  });
+
+  it('also pins the thinking language when configured', async () => {
+    const { buildLanguageInstruction } = await import('../src/session/manager.js');
+    expect(buildLanguageInstruction('ko', 'ko')).toContain('사고(thinking)도 한국어로');
+    expect(buildLanguageInstruction('en', 'off')).toBeUndefined();
+    expect(buildLanguageInstruction('en', 'ja')).toBe('Also think in ja.');
   });
 });

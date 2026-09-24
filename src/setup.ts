@@ -79,6 +79,7 @@ export function renderEnv(a: SetupAnswers): string {
     `DEFAULT_MODEL=${a.defaultModel}`,
     `PERMISSION_MODE=${a.permissionMode}`,
     'DEFAULT_LANG=ko',
+    'THINKING_LANG=off',
     `DEFAULT_CWD=${a.defaultCwd ?? ''}`,
     'IDLE_TIMEOUT_MS=3300000',
     '',
