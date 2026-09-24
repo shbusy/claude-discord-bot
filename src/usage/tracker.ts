@@ -1,4 +1,5 @@
 import type { UsageDelta } from '../claude/types.js';
+import type { TurnStartInfo } from '../session/manager.js';
 import { insertUsage } from './db.js';
 
 export interface TrackingContext {
@@ -20,6 +21,8 @@ export class UsageTracker {
     cacheReadInputTokens: 0,
     costUsd: undefined,
   };
+  private firstCall: { creation: number; read: number } | null = null;
+  private turnStart: TurnStartInfo | null = null;
 
   constructor(
     private readonly cdbHome: string,
@@ -31,8 +34,18 @@ export class UsageTracker {
     this.trackCtx.sessionId = sessionId;
   }
 
+  setTurnStart(info: TurnStartInfo): void {
+    this.turnStart = info;
+  }
+
   /** Accumulate a usage delta (called per assistant message). */
   record(delta: UsageDelta): void {
+    if (!delta.final && !this.firstCall) {
+      this.firstCall = {
+        creation: delta.cacheCreationInputTokens ?? 0,
+        read: delta.cacheReadInputTokens ?? 0,
+      };
+    }
     if (delta.final) {
       this.accumulated = {
         inputTokens: delta.inputTokens,
@@ -69,6 +82,10 @@ export class UsageTracker {
         cache_creation_tokens: this.accumulated.cacheCreationInputTokens ?? 0,
         cache_read_tokens: this.accumulated.cacheReadInputTokens ?? 0,
         cost_usd: this.accumulated.costUsd ?? null,
+        first_cache_creation_tokens: this.firstCall?.creation ?? null,
+        first_cache_read_tokens: this.firstCall?.read ?? null,
+        spawned: this.turnStart ? Number(this.turnStart.spawned) : null,
+        idle_ms: this.turnStart?.idleMs ?? null,
       });
     } catch {
       // DB write failure — logged by caller, not critical
@@ -77,6 +94,8 @@ export class UsageTracker {
   }
 
   private reset(): void {
+    this.firstCall = null;
+    this.turnStart = null;
     this.accumulated = {
       inputTokens: 0,
       outputTokens: 0,

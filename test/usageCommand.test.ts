@@ -14,6 +14,14 @@ vi.mock('../src/usage/db.js', () => ({
     total_output: 250,
     total_cost: 0.1234,
   }]),
+  queryCacheStats: vi.fn(() => ({
+    turns: 4,
+    first_read: 300_000,
+    first_creation: 100_000,
+    warm_turns: 3,
+    warm_misses: 1,
+    warm_miss_tokens: 90_000,
+  })),
 }));
 
 describe('/a4d usage command', () => {
@@ -44,6 +52,7 @@ describe('/a4d usage command', () => {
       expect.objectContaining({ name: '총 비용', value: '$0.1234' }),
       expect.objectContaining({ name: '요청 수', value: '3' }),
       expect.objectContaining({ name: '모델별 분포', value: expect.stringContaining('sonnet') }),
+      expect.objectContaining({ name: '프롬프트 캐시 (턴 첫 호출 기준)', value: expect.stringContaining('75.0%') }),
     ]));
   });
 });

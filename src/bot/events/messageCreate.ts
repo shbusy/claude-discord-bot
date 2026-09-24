@@ -94,6 +94,7 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
       }
       if (b.isError) stream.setTool('tool error');
     },
+    onTurnStart: (info) => tracker.setTurnStart(info),
     onUsage: (u) => {
       stream.setUsage(u);
       tracker.record(u);

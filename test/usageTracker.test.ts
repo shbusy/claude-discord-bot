@@ -25,4 +25,23 @@ describe('UsageTracker', () => {
       cost_usd: 0.01,
     }));
   });
+
+  it('records first-call cache stats and turn start info', async () => {
+    const { UsageTracker } = await import('../src/usage/tracker.js');
+    const { insertUsage } = await import('../src/usage/db.js');
+    const tracker = new UsageTracker('/tmp/cdb', { sessionId: 's', channelId: 'c' });
+
+    tracker.setTurnStart({ spawned: false, idleMs: 600_000 });
+    tracker.record({ inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 300, cacheReadInputTokens: 250_000 });
+    tracker.record({ inputTokens: 1, outputTokens: 1, cacheCreationInputTokens: 50_000, cacheReadInputTokens: 250_300 });
+    tracker.record({ inputTokens: 2, outputTokens: 2, costUsd: 0.2, final: true });
+    tracker.flush();
+
+    expect(insertUsage).toHaveBeenLastCalledWith('/tmp/cdb', expect.objectContaining({
+      first_cache_creation_tokens: 300,
+      first_cache_read_tokens: 250_000,
+      spawned: 0,
+      idle_ms: 600_000,
+    }));
+  });
 });

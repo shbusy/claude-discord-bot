@@ -1,6 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import type { SubCommand } from '../types.js';
-import { queryUsageSummary, queryModelBreakdown } from '../../usage/db.js';
+import { queryUsageSummary, queryModelBreakdown, queryCacheStats } from '../../usage/db.js';
 
 export const usageCommand: SubCommand = {
   name: 'usage',
@@ -41,6 +41,19 @@ export const usageCommand: SubCommand = {
         (b) => `**${b.model}**: in ${b.total_input.toLocaleString()} / out ${b.total_output.toLocaleString()} ($${b.total_cost.toFixed(4)})`,
       );
       embed.addFields({ name: '모델별 분포', value: lines.join('\n') });
+    }
+
+    const cache = queryCacheStats(ctx.config.cdbHome, period);
+    if (cache.turns > 0) {
+      const firstTotal = cache.first_read + cache.first_creation;
+      const hitRate = firstTotal > 0 ? (cache.first_read / firstTotal) * 100 : 0;
+      embed.addFields({
+        name: '프롬프트 캐시 (턴 첫 호출 기준)',
+        value: [
+          `적중률 **${hitRate.toFixed(1)}%** (${cache.turns.toLocaleString()}턴)`,
+          `55분 이내 재개 ${cache.warm_turns}턴 중 캐시 미스 **${cache.warm_misses}턴** (재기록 ${cache.warm_miss_tokens.toLocaleString()} 토큰)`,
+        ].join('\n'),
+      });
     }
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
