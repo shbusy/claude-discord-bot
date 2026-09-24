@@ -9,6 +9,7 @@ import { SessionManager } from './session/manager.js';
 import { PluginRegistry } from './plugins/registry.js';
 import { PluginLoader } from './plugins/loader.js';
 import { closeDb } from './usage/db.js';
+import { resolveExecutable } from './util/resolveExecutable.js';
 import type { AppContext } from './bot/types.js';
 
 export async function run(envPath?: string): Promise<void> {
@@ -18,6 +19,16 @@ export async function run(envPath?: string): Promise<void> {
   if (cfg.allowedUserIds.length === 0) {
     log.error('ALLOWED_USER_IDS가 비어 있습니다. 보안상 부팅을 거부합니다.');
     process.exit(EXIT_CONFIG_ERROR);
+  }
+
+  // SDK에 번들된 Claude Code는 SDK 버전에 묶여 낡는다(모델 별칭 opus/sonnet도 옛 모델로 풀림).
+  // 터미널에서 쓰는 것과 같은 설치본을 쓰도록 절대 경로로 확정해 넘긴다.
+  const claudePath = resolveExecutable(cfg.claudeBin);
+  if (claudePath) {
+    cfg.claudeBin = claudePath;
+    log.info({ claudeBin: claudePath }, 'Claude Code 실행 파일');
+  } else {
+    log.warn({ claudeBin: cfg.claudeBin }, 'CLAUDE_BIN을 찾지 못해 SDK 번들 Claude Code로 실행 (구버전일 수 있음)');
   }
 
   const client = createClient();

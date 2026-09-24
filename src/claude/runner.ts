@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { isAbsolute } from 'node:path';
 import {
   query,
   type CanUseTool,
@@ -152,6 +153,8 @@ export class ClaudeRunner extends EventEmitter {
       options: {
         cwd: this.opts.cwd,
         model: this.opts.model,
+        // 절대 경로로 확정된 경우에만 시스템 설치본을 쓴다. 아니면 SDK 번들본.
+        ...(isAbsolute(this.opts.bin) ? { pathToClaudeCodeExecutable: this.opts.bin } : {}),
         permissionMode: resolvedPermissionMode,
         ...(resolvedPermissionMode === 'bypassPermissions'
           ? { allowDangerouslySkipPermissions: true }
