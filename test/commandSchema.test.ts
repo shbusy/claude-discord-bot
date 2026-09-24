@@ -45,8 +45,10 @@ describe('/cdb command schema', () => {
     expect(newOptions).toContain('permission_mode');
     const browsePermission = browse.find((o) => o.name === 'permission_mode');
     const newPermission = newCommand.find((o) => o.name === 'permission_mode');
-    expect(browsePermission?.choices?.map((o) => o.value)).not.toContain('bypassPermissions');
-    expect(newPermission?.choices?.map((o) => o.value)).not.toContain('bypassPermissions');
+    // 폰에서 완전 자동으로 쓰기 위해 bypassPermissions도 선택지로 제공한다.
+    const expected = ['bypassPermissions', 'auto', 'acceptEdits', 'default', 'plan'];
+    expect(browsePermission?.choices?.map((o) => o.value)).toEqual(expected);
+    expect(newPermission?.choices?.map((o) => o.value)).toEqual(expected);
   });
 
 });
