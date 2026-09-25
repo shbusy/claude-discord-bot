@@ -13,6 +13,7 @@ const config = {
   permissionMode: 'default',
   defaultLang: 'ko',
   thinkingLang: 'off',
+  requireMention: false,
   defaultCwd: '/work',
   cdbHome: '/tmp/cdb',
   logLevel: 'info',

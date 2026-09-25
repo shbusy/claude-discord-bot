@@ -70,6 +70,7 @@ function makeConfig(): Config {
     permissionMode: 'default',
     defaultLang: 'ko',
     thinkingLang: 'off',
+    requireMention: false,
     defaultCwd: mkdtempSync(join(tmpdir(), 'cdb-sess-')),
     cdbHome: '/tmp/cdb',
     logLevel: 'info',

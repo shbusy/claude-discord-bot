@@ -22,6 +22,7 @@ const ENV_KEY_BY_FIELD: Record<string, string> = {
   permissionMode: 'PERMISSION_MODE',
   defaultLang: 'DEFAULT_LANG',
   thinkingLang: 'THINKING_LANG',
+  requireMention: 'REQUIRE_MENTION',
   defaultCwd: 'DEFAULT_CWD',
   cdbHome: 'CDB_HOME',
   logLevel: 'LOG_LEVEL',
@@ -50,12 +51,17 @@ export async function loadConfig(envPath?: string): Promise<Config> {
     permissionMode: process.env.PERMISSION_MODE || 'default',
     defaultLang: process.env.DEFAULT_LANG || 'ko',
     thinkingLang: process.env.THINKING_LANG || 'off',
+    requireMention: parseBool(process.env.REQUIRE_MENTION),
     defaultCwd: process.env.DEFAULT_CWD || homedir(),
     cdbHome: defaultCdbHome(),
     logLevel: process.env.LOG_LEVEL || 'info',
     idleTimeoutMs: process.env.IDLE_TIMEOUT_MS ? Number(process.env.IDLE_TIMEOUT_MS) : undefined,
   });
   return parsed;
+}
+
+function parseBool(v: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((v ?? '').trim().toLowerCase());
 }
 
 function splitCsv(v: string | undefined): string[] {

@@ -199,11 +199,13 @@ npm run e2e:manual
 
 ### 기본 대화
 
-세션 채널에서 **봇을 멘션**하면 대화가 시작된다:
+세션 채널에 메시지를 보내면 대화가 시작된다 (멘션 불필요, `usage` 채널 제외):
 
 ```
-@Claude Code Bot 이 프로젝트의 README를 작성해줘
+이 프로젝트의 README를 작성해줘
 ```
+
+`REQUIRE_MENTION=true`로 두면 예전처럼 `@봇` 멘션한 메시지에만 반응한다.
 
 봇이 `claude` CLI를 spawn하고, 응답을 임베드로 실시간 스트리밍한다.
 
@@ -377,6 +379,7 @@ export default plugin;
 | `PERMISSION_MODE` | `default` | Claude 권한 모드 (`acceptEdits` / `auto` / `default` / `dontAsk` / `plan`) |
 | `DEFAULT_LANG` | `ko` | 답변 언어 |
 | `THINKING_LANG` | `off` | thinking 언어 강제. `off`면 모델에 맡김(권장). `ko`로 두면 thinking도 한국어가 되지만 출력 토큰이 늘어난다 |
+| `REQUIRE_MENTION` | `false` | `true`면 `@멘션`한 메시지에만 반응. `false`면 허용된 사용자의 모든 메시지에 반응(usage 채널 제외) |
 | `DEFAULT_CWD` | `$HOME` | 기본 작업 디렉토리. Discord에서 지정하는 세션 경로는 이 경로 아래로 제한 |
 | `IDLE_TIMEOUT_MS` | `3300000` | 대기 중인 Claude 프로세스 종료 시간 (ms). 프롬프트 캐시 TTL(1h)보다 짧게 유지 |
 | `CDB_HOME` | `~/.claude-discord-bot` | 데이터·로그·플러그인 디렉토리 |
@@ -467,11 +470,11 @@ ALLOWED_USER_IDS가 비어 있습니다. 보안상 부팅을 거부합니다.
 
 → [Developer Portal](https://discord.com/developers/applications) → Bot → **MESSAGE CONTENT INTENT** ON
 
-### 봇이 멘션에 반응 안 함
+### 봇이 메시지에 반응 안 함
 
 1. 봇이 해당 채널을 볼 수 있는지 확인 (권한)
 2. `ALLOWED_USER_IDS`에 본인 ID가 있는지 확인
-3. 봇을 `@멘션`했는지 확인 (일반 메시지에는 반응 안 함)
+3. `REQUIRE_MENTION=true`라면 봇을 `@멘션`했는지 확인
 
 ### idle 후 세션이 끊겼다
 

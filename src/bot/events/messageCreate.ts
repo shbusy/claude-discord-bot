@@ -28,7 +28,9 @@ async function onMessage(msg: Message, ctx: AppContext): Promise<void> {
   if (!msg.channel.isSendable()) return;
   if (!ctx.client.user) return;
   const mentioned = msg.mentions.users.has(ctx.client.user.id);
-  if (!mentioned) return;
+  if (ctx.config.requireMention && !mentioned) return;
+  // 멘션 없이 반응할 때도 사용량 알림 채널은 대화 채널이 아니므로 무시한다.
+  if (!mentioned && 'name' in msg.channel && USAGE_CHANNEL_NAMES.includes(msg.channel.name ?? '')) return;
   if (ctx.pluginRegistry && await ctx.pluginRegistry.runUserMessageHooks(msg, ctx)) return;
 
   if (ctx.sessions.hasActiveRunner(msg.channelId)) {
