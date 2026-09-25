@@ -17,7 +17,10 @@ export const clearCommand: SubCommand = {
       await interaction.editReply({ content: '활성 세션이 없습니다.' });
       return;
     }
-    await ctx.sessions.syncTopic(interaction.channel as TextChannel);
     await interaction.editReply({ content: '🧹 컨텍스트를 초기화했습니다. 다음 메시지부터 새 대화로 시작합니다.' });
+    // 토픽 변경은 속도 제한으로 몇 분씩 대기할 수 있어 응답을 붙잡지 않도록 뒤에서 처리한다.
+    void ctx.sessions.syncTopic(interaction.channel as TextChannel).catch((err) =>
+      ctx.log.warn({ err }, '토픽 동기화 실패'),
+    );
   },
 };

@@ -311,6 +311,9 @@ export class SessionManager {
   async syncTopic(channel: TextChannel): Promise<void> {
     const session = this.sessions.get(channel.id);
     if (!session) return;
+    // 토픽 변경은 채널당 10분에 2회로 제한되고, 초과분은 discord.js가 조용히 대기열에 쌓는다.
+    // 매 턴 바뀌는 lastActiveAt만 다를 때는 건너뛰어 대기열이 밀리지 않게 한다.
+    if (sameExceptActiveAt(decodeTopic(channel.topic), session.meta)) return;
     const newTopic = encodeTopic(session.meta, channel.topic ?? undefined);
     if (channel.topic !== newTopic) {
       await channel.setTopic(newTopic).catch((err) => {
@@ -466,4 +469,14 @@ export class SessionManager {
       session.idleTimer = null;
     }
   }
+}
+
+function sameExceptActiveAt(a: SessionMeta | null, b: SessionMeta): boolean {
+  return (
+    a !== null &&
+    a.sessionId === b.sessionId &&
+    a.cwd === b.cwd &&
+    a.model === b.model &&
+    a.permissionMode === b.permissionMode
+  );
 }

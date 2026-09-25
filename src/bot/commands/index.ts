@@ -61,10 +61,15 @@ export async function dispatch(interaction: ChatInputCommandInteraction, ctx: Ap
     ctx.log.error({ err, sub }, '커맨드 처리 실패');
     const msg = `❌ 처리 중 오류가 발생했습니다.`;
     ctx.log.debug({ errMsg: (err as Error).message }, '커맨드 에러 상세');
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: msg, ephemeral: true });
-    } else {
-      await interaction.reply({ content: msg, ephemeral: true });
+    // 인터랙션 토큰(15분)이 만료된 경우 오류 응답도 실패한다. 여기서 던지면 프로세스가 죽는다.
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: msg, ephemeral: true });
+      } else {
+        await interaction.reply({ content: msg, ephemeral: true });
+      }
+    } catch (replyErr) {
+      ctx.log.warn({ err: replyErr, sub }, '오류 응답 전송 실패');
     }
   }
 }

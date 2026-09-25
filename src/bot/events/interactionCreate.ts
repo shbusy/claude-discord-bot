@@ -6,7 +6,7 @@ import { handleDirectoryBrowserInteraction } from '../../ui/directoryBrowser.js'
 export function registerInteractions(ctx: AppContext): void {
   ctx.client.on(Events.InteractionCreate, (interaction: Interaction) => {
     if (interaction.isChatInputCommand()) {
-      void dispatch(interaction, ctx);
+      void dispatch(interaction, ctx).catch((err) => ctx.log.error({ err }, '커맨드 처리 실패'));
       return;
     }
     if (interaction.isStringSelectMenu() || interaction.isButton() || interaction.isModalSubmit()) {
